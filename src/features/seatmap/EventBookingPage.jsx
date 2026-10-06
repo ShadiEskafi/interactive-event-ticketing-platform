@@ -12,22 +12,25 @@ import {
   clearPendingBooking,
 } from '../hold';
 import { useAuth, AuthModal } from '../auth';
+import { TicketReceiptPage } from '../tickets';
 import './SeatMap.css';
 import '../hold/Hold.css';
 import '../checkout/CheckoutFlow.css';
 
 /**
- * Event Booking Page Container (Feature Modules FEAT-SEAT-01, FEAT-HOLD-02, FEAT-AUTH-03)
+ * Event Booking Page Container (Feature Modules FEAT-SEAT-01, FEAT-HOLD-02, FEAT-AUTH-03, FEAT-TICK-04)
  */
 export function EventBookingPage({
   venueId = '00000000-0000-0000-0000-000000000001',
   eventId = 'evt-symphony-2026',
   requireAuth = true,
+  onNavigateToDashboard,
 }) {
   const [layout, setLayout] = useState(null);
   const [seats, setSeats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('map'); // 'map' | 'checkout'
+  const [viewMode, setViewMode] = useState('map'); // 'map' | 'checkout' | 'receipt'
+  const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const { user } = useAuth();
@@ -179,11 +182,12 @@ export function EventBookingPage({
     setViewMode('map');
   };
 
-  const handlePaymentSuccess = () => {
-    alert('Payment confirmed! Your digital tickets have been generated.');
+  const handlePaymentSuccess = async (result) => {
+    setConfirmedBooking(result?.booking || result);
     clearPendingBooking();
     clearSelection();
-    setViewMode('map');
+    await refreshSeats();
+    setViewMode('receipt');
   };
 
   return (
@@ -231,8 +235,14 @@ export function EventBookingPage({
       {/* Accessible Collision Warning Banner (Seat hold conflict) */}
       <CollisionAlert message={holdError} onDismiss={clearHoldError} />
 
-      {/* Main Content: Map or Checkout View */}
-      {viewMode === 'checkout' ? (
+      {/* Main Content: Map, Checkout, or Receipt View */}
+      {viewMode === 'receipt' ? (
+        <TicketReceiptPage
+          booking={confirmedBooking}
+          onNavigateToDashboard={onNavigateToDashboard}
+          onReturnToMap={handleReturnToMap}
+        />
+      ) : viewMode === 'checkout' ? (
         <HoldCheckoutView
           selectedSeats={selectedSeats}
           reservationData={reservationData}

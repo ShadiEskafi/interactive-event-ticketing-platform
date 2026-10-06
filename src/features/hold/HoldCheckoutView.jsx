@@ -3,6 +3,7 @@ import { HoldTimer } from './HoldTimer';
 import { SessionExpiredModal } from './SessionExpiredModal';
 import { useHoldLifecycle } from './hooks/useHoldLifecycle';
 import { formatCurrency } from '../seatmap/utils/formatters';
+import { mockTicketingService } from '../seatmap/services/mockTicketingService';
 
 /**
  * Hold Checkout View Container
@@ -36,17 +37,31 @@ export function HoldCheckoutView({
 
   const subtotal = selectedSeats.reduce((sum, s) => sum + (s.price || 0), 0);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (isExpired || isSubmitting) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const seatIds = selectedSeats.map((s) => s.id);
+      const effectiveUserId = user?.id || reservationData?.userId;
+      const result = await mockTicketingService.confirmBooking({
+        eventId,
+        seatIds,
+        userId: effectiveUserId,
+        attendeeName: formData.name || 'Valued Attendee',
+        attendeeEmail: formData.email || 'attendee@example.com',
+        paymentDetails: { cardNumber: formData.cardNumber },
+      });
+
       if (onPaymentSuccess) {
-        onPaymentSuccess();
+        onPaymentSuccess(result);
       }
-    }, 500);
+    } catch (err) {
+      console.error('Failed to confirm booking:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

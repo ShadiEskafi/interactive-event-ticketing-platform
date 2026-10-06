@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { HoldTimer } from '../../hold/HoldTimer';
 import { formatCurrency } from '../../seatmap/utils/formatters';
+import { mockTicketingService } from '../../seatmap/services/mockTicketingService';
 import '../CheckoutFlow.css';
 
 /**
- * Step 2: Payment and Order Confirmation (SPEC-03 / Scenario 3.2)
+ * Step 2: Payment and Order Confirmation (SPEC-03 / Scenario 3.2, SPEC-04 / Scenario 4.1)
  * Renders attendee details pre-filled from user, retained seat list, subtotal, and running countdown timer.
  */
 export function PaymentStep({
@@ -24,17 +25,30 @@ export function PaymentStep({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (isExpired || isSubmitting) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const seatIds = selectedSeats.map((s) => s.id);
+      const result = await mockTicketingService.confirmBooking({
+        eventId: 'evt-symphony-2026',
+        seatIds,
+        userId: user?.id,
+        attendeeName: formData.name || 'Valued Attendee',
+        attendeeEmail: formData.email || 'attendee@example.com',
+        paymentDetails: { cardNumber: formData.cardNumber },
+      });
+
       if (onPaymentSuccess) {
-        onPaymentSuccess();
+        onPaymentSuccess(result);
       }
-    }, 500);
+    } catch (err) {
+      console.error('Payment error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
