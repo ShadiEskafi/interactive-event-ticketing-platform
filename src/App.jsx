@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { AuthProvider, AuthModal, useAuth } from './features/auth';
 import { EventBookingPage } from './features/seatmap';
+import { MyTicketsPage } from './features/tickets';
 import './App.css';
 
-function MainNavbar({ onOpenAuth }) {
+function MainNavbar({ activeTab = 'events', onSelectTab, onOpenAuth }) {
   const { user, signOut } = useAuth();
 
   return (
@@ -16,6 +17,26 @@ function MainNavbar({ onOpenAuth }) {
             <span className="brand-tagline">Real-Time Interactive Ticketing</span>
           </div>
         </div>
+
+        {/* Center Nav Links */}
+        <nav className="nav-center-links" aria-label="Main Navigation">
+          <button
+            type="button"
+            className={`nav-link-btn ${activeTab === 'events' ? 'active' : ''}`}
+            data-testid="nav-link-events"
+            onClick={() => onSelectTab && onSelectTab('events')}
+          >
+            Events
+          </button>
+          <button
+            type="button"
+            className={`nav-link-btn ${activeTab === 'tickets' ? 'active' : ''}`}
+            data-testid="nav-link-my-tickets"
+            onClick={() => onSelectTab && onSelectTab('tickets')}
+          >
+            My Tickets
+          </button>
+        </nav>
 
         <div className="navbar-user-section">
           {user ? (
@@ -55,12 +76,25 @@ function MainNavbar({ onOpenAuth }) {
 }
 
 export function AppContent() {
+  const [activeNavTab, setActiveNavTab] = useState('events'); // 'events' | 'tickets'
   const [isHeaderAuthOpen, setIsHeaderAuthOpen] = useState(false);
 
   return (
     <div className="app-layout">
-      <MainNavbar onOpenAuth={() => setIsHeaderAuthOpen(true)} />
-      <EventBookingPage requireAuth={true} />
+      <MainNavbar
+        activeTab={activeNavTab}
+        onSelectTab={setActiveNavTab}
+        onOpenAuth={() => setIsHeaderAuthOpen(true)}
+      />
+
+      {activeNavTab === 'tickets' ? (
+        <MyTicketsPage onExploreEvents={() => setActiveNavTab('events')} />
+      ) : (
+        <EventBookingPage
+          requireAuth={true}
+          onNavigateToDashboard={() => setActiveNavTab('tickets')}
+        />
+      )}
 
       {/* Standalone Auth Modal when clicking Sign In from navbar */}
       <AuthModal

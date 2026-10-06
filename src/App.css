@@ -135,3 +135,33 @@
 .nav-btn-signout:hover {
   background: rgba(239, 68, 68, 0.22);
 }
+
+/* Center Nav Links */
+.nav-center-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-link-btn {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-link-btn:hover {
+  color: #F8FAFC;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-link-btn.active {
+  color: #38BDF8;
+  background: rgba(56, 189, 248, 0.1);
+}
+

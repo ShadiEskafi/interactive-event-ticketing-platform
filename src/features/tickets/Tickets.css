@@ -1,0 +1,656 @@
+/* Tickets Feature Styling (SPEC-04 / FEAT-TICK-04) */
+
+/* === Physical Ticket Pass Card === */
+.ticket-pass-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.ticket-pass-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  color: #f8fafc;
+  font-family: inherit;
+  position: relative;
+}
+
+.pass-header {
+  padding: 1.5rem 1.5rem 1rem;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+}
+
+.pass-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.pass-brand-logo {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pass-tier-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  border: 1px solid currentColor;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pass-event-title {
+  margin: 0 0 0.4rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.pass-event-date {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.pass-venue-name {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+/* === Perforation Tear Line === */
+.pass-perforation {
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 24px;
+  margin: 0 -1px;
+}
+
+.pass-perforation .notch {
+  width: 14px;
+  height: 24px;
+  background: #090d16; /* Matches surrounding page background */
+  position: absolute;
+  z-index: 2;
+}
+
+.pass-perforation .notch-left {
+  left: 0;
+  border-top-right-radius: 14px;
+  border-bottom-right-radius: 14px;
+  border-right: 1px solid #334155;
+}
+
+.pass-perforation .notch-right {
+  right: 0;
+  border-top-left-radius: 14px;
+  border-bottom-left-radius: 14px;
+  border-left: 1px solid #334155;
+}
+
+.pass-perforation .dash-line {
+  flex: 1;
+  border-bottom: 2px dashed #334155;
+  margin: 0 16px;
+}
+
+/* === Pass Body & Grid === */
+.pass-body {
+  padding: 1rem 1.5rem 1.5rem;
+}
+
+.pass-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  background: #1e293b50;
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid #1e293b;
+}
+
+.pass-grid-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.pass-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.pass-val {
+  font-size: 0.95rem;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* === QR Code Container === */
+.pass-qr-section {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: #0b1120;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid #1e293b;
+}
+
+.pass-code-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pass-code-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.pass-code-value {
+  font-size: 1.2rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #38bdf8;
+  letter-spacing: 0.05em;
+}
+
+.pass-signature-tag {
+  font-size: 0.65rem;
+  color: #10b981;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* === Export Actions === */
+.ticket-export-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-export {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.btn-export:hover:not(:disabled) {
+  background: #334155;
+  border-color: #475569;
+  transform: translateY(-1px);
+}
+
+.btn-export:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-export-pdf {
+  border-color: #38bdf840;
+  background: #0284c715;
+  color: #38bdf8;
+}
+
+.btn-export-pdf:hover:not(:disabled) {
+  background: #0284c725;
+}
+
+.btn-export-png {
+  border-color: #10b98140;
+  background: #05966915;
+  color: #34d399;
+}
+
+.btn-export-png:hover:not(:disabled) {
+  background: #05966925;
+}
+
+/* === Full Screen QR Modal === */
+.qr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.full-screen-qr-container {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 20px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  text-align: center;
+  position: relative;
+}
+
+/* High Brightness Boost for Gate Readers */
+.brightness-boost {
+  filter: brightness(1.15) contrast(1.1);
+  box-shadow: 0 0 60px rgba(255, 255, 255, 0.25);
+}
+
+.qr-modal-header {
+  margin-bottom: 1.5rem;
+}
+
+.qr-modal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.qr-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.btn-qr-modal-close {
+  background: transparent;
+  border: none;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.btn-qr-modal-close:hover {
+  color: #0f172a;
+}
+
+.qr-modal-event {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.qr-modal-seat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.qr-modal-seat-tag {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #0284c7;
+}
+
+.qr-modal-attendee {
+  font-size: 0.9rem;
+  color: #475569;
+  font-weight: 600;
+}
+
+.qr-modal-code-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.qr-modal-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.qr-modal-ticket-code {
+  font-family: ui-monospace, monospace;
+  font-size: 1.4rem;
+  color: #0f172a;
+  letter-spacing: 0.1em;
+}
+
+.qr-modal-hint {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+/* === Dashboard & Ticket Cards === */
+.my-tickets-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.my-tickets-header {
+  margin-bottom: 2rem;
+}
+
+.my-tickets-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 0.5rem;
+}
+
+.my-tickets-subtitle {
+  font-size: 1rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.my-tickets-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid #1e293b;
+  margin-bottom: 2rem;
+}
+
+.my-tickets-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.75rem 1.25rem;
+  color: #94a3b8;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.my-tickets-tab.active {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+}
+
+.event-ticket-group {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.event-group-header {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #1e293b;
+}
+
+.event-group-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.event-group-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.event-group-count {
+  font-size: 0.8rem;
+  background: #38bdf815;
+  color: #38bdf8;
+  border: 1px solid #38bdf830;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-weight: 700;
+}
+
+.event-group-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+.event-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.ticket-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ticket-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.ticket-card-seat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.seat-badge-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #ffffff;
+}
+
+.seat-tier-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid currentColor;
+  width: fit-content;
+}
+
+.ticket-card-price {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #94a3b8;
+}
+
+.ticket-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.ticket-card-code {
+  font-family: ui-monospace, monospace;
+}
+
+.ticket-status-valid {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.ticket-status-used {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.ticket-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.btn-show-qr {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-show-qr:hover {
+  background: #0369a1;
+}
+
+.btn-quick-export {
+  background: #334155;
+  color: #f8fafc;
+  border: 1px solid #475569;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-quick-export:hover:not(:disabled) {
+  background: #475569;
+}
+
+/* === Receipt Page === */
+.receipt-page-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 5rem;
+}
+
+.receipt-banner {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.receipt-success-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.receipt-title {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #ffffff;
+  margin: 0 0 0.5rem;
+}
+
+.receipt-subtitle {
+  font-size: 1rem;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.receipt-ref-badge {
+  display: inline-block;
+  margin-top: 1rem;
+  background: #10b98115;
+  color: #10b981;
+  border: 1px solid #10b98140;
+  padding: 0.35rem 1rem;
+  border-radius: 9999px;
+  font-family: ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.receipt-passes-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  margin-bottom: 3rem;
+}
+
+.receipt-navigation-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.btn-receipt-dashboard {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 0.85rem 1.75rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-receipt-dashboard:hover {
+  background: #0369a1;
+}
+
+.btn-receipt-back-map {
+  background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid #334155;
+  padding: 0.85rem 1.75rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-receipt-back-map:hover {
+  background: #334155;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 1.5rem;
+  background: #0f172a;
+  border: 1px dashed #334155;
+  border-radius: 16px;
+  color: #94a3b8;
+}
+
+.empty-state h3 {
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
