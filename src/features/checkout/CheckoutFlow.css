@@ -1,0 +1,236 @@
+/* CheckoutFlow Styles */
+.checkout-flow-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.checkout-flow-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1rem;
+  background: #0f172a;
+  border-bottom: 1px solid #334155;
+}
+
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.step-indicator.active {
+  color: #3b82f6;
+}
+
+.step-indicator.completed {
+  color: #10b981;
+}
+
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: #1e293b;
+  border: 1px solid #475569;
+  font-size: 0.75rem;
+}
+
+.step-indicator.active .step-number {
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+.step-indicator.completed .step-number {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+}
+
+/* Payment Step Layout */
+.payment-step-container {
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  width: 100%;
+}
+
+.payment-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #334155;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.payment-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.payment-subtitle {
+  font-size: 0.9375rem;
+  color: #94a3b8;
+  margin: 0.25rem 0 0 0;
+}
+
+.payment-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 2rem;
+}
+
+@media (max-width: 850px) {
+  .payment-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.payment-form-card,
+.payment-summary-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+
+.payment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.payment-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.payment-form label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #cbd5e1;
+}
+
+.payment-form input {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  color: #f8fafc;
+  font-size: 0.875rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.payment-form input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.btn-pay-confirm {
+  background: #10b981;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.875rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  margin-top: 0.5rem;
+}
+
+.btn-pay-confirm:hover:not(:disabled) {
+  background: #059669;
+}
+
+.btn-pay-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.payment-seat-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 1rem;
+}
+
+.payment-seat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0f172a;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid #334155;
+  font-size: 0.875rem;
+}
+
+.seat-code {
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.seat-tier {
+  color: #94a3b8;
+  font-size: 0.8125rem;
+}
+
+.seat-price {
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+.payment-divider {
+  border-bottom: 1px solid #334155;
+  margin: 1.25rem 0;
+}
+
+.payment-subtotal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 1.125rem;
+  color: #f8fafc;
+  margin-bottom: 1.5rem;
+}
+
+.payment-subtotal-val {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.btn-change-seats {
+  width: 100%;
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #475569;
+  border-radius: 0.5rem;
+  padding: 0.625rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-change-seats:hover:not(:disabled) {
+  background: #334155;
+  color: #f8fafc;
+}

@@ -3,21 +3,35 @@ import { SeatMap } from './SeatMap';
 import { CartSummary } from './components/CartSummary';
 import { useSeatSelection } from './hooks/useSeatSelection';
 import { mockTicketingService } from './services/mockTicketingService';
-import { useSeatHold, useRealtimeSeats, CollisionAlert, HoldCheckoutView } from '../hold';
+import {
+  useSeatHold,
+  useRealtimeSeats,
+  CollisionAlert,
+  HoldCheckoutView,
+  persistPendingBooking,
+  clearPendingBooking,
+} from '../hold';
+import { useAuth, AuthModal } from '../auth';
 import './SeatMap.css';
 import '../hold/Hold.css';
+import '../checkout/CheckoutFlow.css';
 
 /**
- * Event Booking Page Container (Feature Modules FEAT-SEAT-01 & FEAT-HOLD-02)
+ * Event Booking Page Container (Feature Modules FEAT-SEAT-01, FEAT-HOLD-02, FEAT-AUTH-03)
  */
 export function EventBookingPage({
   venueId = '00000000-0000-0000-0000-000000000001',
   eventId = 'evt-symphony-2026',
+  requireAuth = true,
 }) {
   const [layout, setLayout] = useState(null);
   const [seats, setSeats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState('map'); // 'map' | 'checkout'
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const { user } = useAuth();
+  const [authedAttendee, setAuthedAttendee] = useState(null);
 
   const {
     selectedSeats,
@@ -93,19 +107,65 @@ export function EventBookingPage({
     }, [])
   );
 
-  // Transition from Map to Checkout with atomic reservation
+  // Transition from Map to Checkout with atomic reservation & auth boundary
   const handleProceedToCheckout = async () => {
     if (selectedSeats.length === 0 || isLocking) return;
 
     const seatIds = selectedSeats.map((s) => s.id);
-    const result = await reserve(eventId, seatIds);
+    const activeUserId = user?.id || reservationData?.userId;
+    const result = await reserve(eventId, seatIds, activeUserId);
 
-    if (result.success) {
-      setViewMode('checkout');
-    } else {
+    if (!result.success) {
       // Re-fetch seats so conflicted ones immediately render Amber (#F59E0B)
       await refreshSeats();
+      return;
     }
+
+    if (requireAuth && !user) {
+      persistPendingBooking({
+        eventId,
+        seatIds,
+        seats: selectedSeats,
+        reservedUntil: result.reserved_until,
+        subtotal,
+        anonymousSessionId: result.reserved_by,
+      });
+      setIsAuthModalOpen(true);
+    } else {
+      setViewMode('checkout');
+    }
+  };
+
+  const handleAuthSuccess = async (authenticatedUser) => {
+    setAuthedAttendee(authenticatedUser);
+    const seatIds = selectedSeats.map((s) => s.id);
+    const anonId = reservationData?.userId;
+
+    try {
+      await mockTicketingService.transferHold(
+        eventId,
+        seatIds,
+        authenticatedUser.id,
+        anonId
+      );
+    } catch {
+      // Safe fallback
+    }
+
+    setIsAuthModalOpen(false);
+    setViewMode('checkout');
+  };
+
+  const handleCloseAuthModal = () => {
+    setIsAuthModalOpen(false);
+  };
+
+  const handleModalExpire = async () => {
+    handleExpire();
+    if (reservationData?.seatIds) {
+      await release(eventId, reservationData.seatIds);
+    }
+    clearPendingBooking();
   };
 
   // Return to Seat Map after expiration or cancellation
@@ -113,6 +173,7 @@ export function EventBookingPage({
     if (reservationData?.seatIds) {
       await release(eventId, reservationData.seatIds);
     }
+    clearPendingBooking();
     clearSelection();
     await refreshSeats();
     setViewMode('map');
@@ -120,6 +181,7 @@ export function EventBookingPage({
 
   const handlePaymentSuccess = () => {
     alert('Payment confirmed! Your digital tickets have been generated.');
+    clearPendingBooking();
     clearSelection();
     setViewMode('map');
   };
@@ -178,6 +240,7 @@ export function EventBookingPage({
           onExpire={handleExpire}
           onReturnToMap={handleReturnToMap}
           onPaymentSuccess={handlePaymentSuccess}
+          user={authedAttendee || user}
         />
       ) : (
         <main className="booking-body">
@@ -205,6 +268,17 @@ export function EventBookingPage({
           )}
         </main>
       )}
+
+      {/* Smart Frictionless Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={handleCloseAuthModal}
+        reservedUntil={reservationData?.reservedUntil}
+        isExpired={isExpired}
+        onExpire={handleModalExpire}
+        onReturnToMap={handleReturnToMap}
+        onAuthSuccess={handleAuthSuccess}
+      />
     </div>
   );
 }

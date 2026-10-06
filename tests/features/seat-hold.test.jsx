@@ -9,7 +9,7 @@ describe('Seat Hold & Concurrency Control (SPEC-02 / REQ-HOLD-02.1)', () => {
   });
 
   it('atomically locks selected seats and transitions to checkout on success', async () => {
-    render(<EventBookingPage />);
+    render(<EventBookingPage requireAuth={false} />);
 
     // Select available seat A-10
     const seatA10 = await screen.findByTestId('A-10');
@@ -31,7 +31,7 @@ describe('Seat Hold & Concurrency Control (SPEC-02 / REQ-HOLD-02.1)', () => {
     // Simulate another user reserving A-11 beforehand
     await mockTicketingService.reserveSeats('evt-symphony-2026', ['A-11'], 'other-attendee-999');
 
-    render(<EventBookingPage />);
+    render(<EventBookingPage requireAuth={false} />);
 
     // Attempt to select A-11
     const seatA11 = await screen.findByTestId('A-11');

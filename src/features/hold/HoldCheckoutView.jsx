@@ -17,10 +17,11 @@ export function HoldCheckoutView({
   onExpire,
   onReturnToMap,
   onPaymentSuccess,
+  user = null,
 }) {
   const [formData, setFormData] = useState({
-    name: 'Jane Doe',
-    email: 'jane.doe@example.com',
+    name: user?.user_metadata?.full_name || '',
+    email: user?.email || '',
     cardNumber: '•••• •••• •••• 4242',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,7 +68,7 @@ export function HoldCheckoutView({
 
       <div className="checkout-main-grid">
         {/* Payment & Attendee Form */}
-        <section className="checkout-form-section" aria-label="Payment Information">
+        <section className="checkout-form-section" aria-label="Payment Information" data-testid="checkout-step-payment">
           <form onSubmit={handleSubmit} className="checkout-form">
             <div className="form-group">
               <label htmlFor="attendee-name">Full Name</label>
@@ -121,7 +122,7 @@ export function HoldCheckoutView({
 
           <div className="checkout-seat-list">
             {selectedSeats.map((seat) => (
-              <div key={seat.id} className="checkout-seat-row">
+              <div key={seat.id} className="checkout-seat-row" data-testid={`retained-seat-${seat.id}`}>
                 <div>
                   <strong>Seat {seat.rowLabel}-{seat.seatNumber}</strong>
                   <span className="checkout-seat-tier"> ({seat.category})</span>

@@ -1,7 +1,137 @@
-/* Global App Styles */
+/* Global App Layout Styles */
 #root {
   min-height: 100vh;
   margin: 0;
   padding: 0;
   width: 100%;
+}
+
+.app-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Navbar */
+.main-navbar {
+  background-color: #0B1120;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.75rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+}
+
+.navbar-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-icon {
+  font-size: 1.5rem;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #F8FAFC;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.brand-tagline {
+  font-size: 0.75rem;
+  color: #94A3B8;
+  line-height: 1.2;
+}
+
+.navbar-user-section {
+  display: flex;
+  align-items: center;
+}
+
+.nav-guest-profile,
+.nav-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.guest-pill {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94A3B8;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.user-avatar {
+  width: 2rem;
+  height: 2rem;
+  background: linear-gradient(135deg, #3B82F6, #6366F1);
+  color: #FFFFFF;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.user-identity {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #E2E8F0;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-btn {
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.4rem 0.875rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-btn-signin {
+  background: #3B82F6;
+  color: #FFFFFF;
+  border: none;
+}
+
+.nav-btn-signin:hover {
+  background: #2563EB;
+}
+
+.nav-btn-signout {
+  background: rgba(239, 68, 68, 0.12);
+  color: #F87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.nav-btn-signout:hover {
+  background: rgba(239, 68, 68, 0.22);
 }
