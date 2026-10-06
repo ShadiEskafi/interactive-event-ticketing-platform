@@ -1,19 +1,39 @@
+import { useMemo } from 'react';
 import { formatCurrency } from '../utils/formatters';
 
 /**
  * Live Cart Summary Component
  * Displays selected seat count, itemized tier breakdown, subtotal, and checkout CTA.
+ * Dynamically computes seatCount, subtotal, and tierSummary directly from selectedSeats.
  */
 export function CartSummary({
   selectedSeats = [],
-  tierSummary = {},
-  subtotal = 0,
+  tierSummary: propTierSummary,
+  subtotal: propSubtotal,
   onDeselectSeat,
   onCheckout,
 }) {
   const seatCount = selectedSeats.length;
 
-  const activeTiers = Object.entries(tierSummary).filter(([, count]) => count > 0);
+  // Dynamically compute subtotal from selectedSeats
+  const computedSubtotal = useMemo(() => {
+    return selectedSeats.reduce((sum, seat) => sum + (seat.price || 0), 0);
+  }, [selectedSeats]);
+
+  const subtotal = propSubtotal !== undefined ? propSubtotal : computedSubtotal;
+
+  // Dynamically compute tier breakdown from selectedSeats if not passed
+  const computedTierSummary = useMemo(() => {
+    if (propTierSummary) return propTierSummary;
+    const summary = { VIP: 0, Regular: 0, Balcony: 0 };
+    selectedSeats.forEach((seat) => {
+      const cat = seat.category || 'Regular';
+      summary[cat] = (summary[cat] || 0) + 1;
+    });
+    return summary;
+  }, [selectedSeats, propTierSummary]);
+
+  const activeTiers = Object.entries(computedTierSummary).filter(([, count]) => count > 0);
   const tierBreakdownText = activeTiers
     .map(([tier, count]) => `${tier} (${count})`)
     .join(', ');

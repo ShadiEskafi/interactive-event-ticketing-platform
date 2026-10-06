@@ -10,13 +10,19 @@ const STATUS_COLORS = {
 
 function SeatComponent({
   seat,
-  isSelected,
+  isSelected: isSelectedProp,
+  selectedSeats,
   isFocused = false,
   onSelect,
   onHover,
   onHoverLeave,
   onFocus,
 }) {
+  const isSelected = Boolean(
+    isSelectedProp !== undefined
+      ? isSelectedProp
+      : selectedSeats?.some((s) => s.id === seat?.id)
+  );
   const isInteractive = seat.status === 'available' || isSelected;
   const currentFill = isSelected ? STATUS_COLORS.selected : (STATUS_COLORS[seat.status] || STATUS_COLORS.available);
   const cursorStyle = isInteractive ? 'pointer' : 'not-allowed';
@@ -26,6 +32,11 @@ function SeatComponent({
     if (onSelect) {
       onSelect(seat);
     }
+  };
+
+  const handlePointerDown = (e) => {
+    // Prevent pan/zoom container from capturing the pointer and swallowing seat selection clicks
+    e.stopPropagation();
   };
 
   const handleKeyDown = (e) => {
@@ -67,6 +78,7 @@ function SeatComponent({
     <g
       className={`seat-node ${isSelected ? 'is-selected' : ''} ${isFocused ? 'is-focused' : ''}`}
       transform={`translate(${seat.cx}, ${seat.cy})`}
+      onPointerDown={handlePointerDown}
     >
       <circle
         role="gridcell"
@@ -85,6 +97,7 @@ function SeatComponent({
           outline: 'none',
         }}
         onClick={handleClick}
+        onPointerDown={handlePointerDown}
         onKeyDown={handleKeyDown}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
@@ -97,8 +110,7 @@ function SeatComponent({
           fontSize="9"
           fill="#FFFFFF"
           fontWeight="600"
-          pointerEvents="none"
-          userSelect="none"
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
           {seat.seatNumber}
         </text>
@@ -112,11 +124,18 @@ function SeatComponent({
  * Prevents 520 seat re-renders when hovering or moving tooltips.
  */
 export const Seat = React.memo(SeatComponent, (prevProps, nextProps) => {
+  const prevSelected = prevProps.isSelected !== undefined
+    ? prevProps.isSelected
+    : prevProps.selectedSeats?.some((s) => s.id === prevProps.seat.id);
+  const nextSelected = nextProps.isSelected !== undefined
+    ? nextProps.isSelected
+    : nextProps.selectedSeats?.some((s) => s.id === nextProps.seat.id);
+
   return (
     prevProps.seat.id === nextProps.seat.id &&
     prevProps.seat.status === nextProps.seat.status &&
     prevProps.seat.price === nextProps.seat.price &&
-    prevProps.isSelected === nextProps.isSelected &&
+    prevSelected === nextSelected &&
     prevProps.isFocused === nextProps.isFocused
   );
 });

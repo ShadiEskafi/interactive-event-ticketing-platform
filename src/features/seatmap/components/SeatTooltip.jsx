@@ -26,7 +26,7 @@ export function SeatTooltip({ visible, seat, x, y }) {
         </div>
         <div className="seat-tooltip-details">
           <span className="seat-tooltip-category">{seat.category}</span>
-          <span className="seat-tooltip-sep">-</span>
+          <span className="seat-tooltip-sep"> - </span>
           <span className="seat-tooltip-price">${formattedPrice}</span>
         </div>
         <div className="seat-tooltip-status">

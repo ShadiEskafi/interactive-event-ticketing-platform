@@ -68,7 +68,7 @@ export class MockTicketingService {
   /**
    * Release reserved seats back to available simulating release_seats RPC
    */
-  async releaseSeats(eventId, seatIds, userId) {
+  async releaseSeats(eventId, seatIds, _userId) {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     const updatedSeats = [];
@@ -95,6 +95,40 @@ export class MockTicketingService {
   }
 
   /**
+   * Transfer hold ownership from an anonymous session ID to an authenticated user ID upon login
+   */
+  async transferHold(eventId, seatIds, authenticatedUserId, anonymousSessionId) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const updatedSeats = [];
+    this.seats = this.seats.map((seat) => {
+      if (
+        seatIds.includes(seat.id) &&
+        seat.status === 'reserved' &&
+        (!seat.reservedBy || seat.reservedBy === anonymousSessionId)
+      ) {
+        const updated = {
+          ...seat,
+          reservedBy: authenticatedUserId,
+        };
+        updatedSeats.push(updated);
+        return updated;
+      }
+      return seat;
+    });
+
+    if (updatedSeats.length > 0) {
+      this.notifySeatListeners(updatedSeats);
+    }
+
+    return {
+      success: true,
+      transferred_seat_ids: updatedSeats.map((s) => s.id),
+      new_owner: authenticatedUserId,
+    };
+  }
+
+  /**
    * Realtime change listener subscription simulating Supabase Realtime channel
    */
   subscribeToSeatChanges(_eventId, callback) {
@@ -108,7 +142,7 @@ export class MockTicketingService {
     this.listeners.forEach((callback) => {
       try {
         callback(updatedSeats);
-      } catch (err) {
+      } catch {
         // Safe listener failure isolation
       }
     });

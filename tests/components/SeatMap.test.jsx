@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { SeatMap } from '../../src/features/seatmap/SeatMap';
 import { Seat } from '../../src/features/seatmap/components/Seat';
@@ -97,5 +97,34 @@ describe('SeatMap Component (SPEC-01 / Scenario 1.1)', () => {
     );
 
     expect(renderCount).toBe(2); // TestSeatWrapper renders twice, but memoized Seat comparison prevents subtree diff
+  });
+
+  it('zooms smoothly on DOM wheel event with non-passive listener and cancelable check', () => {
+    render(
+      <SeatMap
+        layout={mockVenueLayout}
+        seats={seats}
+        selectedSeats={[]}
+        onSeatSelect={vi.fn()}
+      />
+    );
+
+    const mapWrapper = screen.getByRole('grid');
+    expect(screen.getByText('100%')).toBeInTheDocument();
+
+    // Dispatch non-passive cancelable wheel event
+    const wheelEvent = new WheelEvent('wheel', {
+      deltaY: -100, // Zoom in
+      cancelable: true,
+      bubbles: true,
+    });
+    const preventDefaultSpy = vi.spyOn(wheelEvent, 'preventDefault');
+
+    act(() => {
+      mapWrapper.dispatchEvent(wheelEvent);
+    });
+
+    expect(preventDefaultSpy).toHaveBeenCalled();
+    expect(screen.getByText('110%')).toBeInTheDocument();
   });
 });

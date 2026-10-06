@@ -30,8 +30,7 @@ export function SeatMap({
     onPointerDown,
     onPointerMove,
     onPointerUp,
-    onWheel,
-  } = usePanZoom();
+  } = usePanZoom(containerRef);
 
   // Create lookup map for fast O(1) seat retrieval
   const seatMap = useMemo(() => {
@@ -152,7 +151,6 @@ export function SeatMap({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onWheel={onWheel}
     >
       {/* Pan & Zoom Floating Toolbar */}
       <div className="map-controls" role="toolbar" aria-label="Map Zoom and Navigation Controls">
@@ -226,6 +224,7 @@ export function SeatMap({
                   key={seat.id}
                   seat={seat}
                   isSelected={selectedSeatIds.has(seat.id)}
+                  selectedSeats={selectedSeats}
                   isFocused={focusedSeatId === seat.id}
                   onSelect={onSeatSelect}
                   onHover={handleSeatHover}

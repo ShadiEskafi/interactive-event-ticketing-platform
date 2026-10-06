@@ -45,7 +45,7 @@ export function EventBookingPage({
     try {
       const seatData = await mockTicketingService.getSeatAvailability(eventId);
       setSeats(seatData);
-    } catch (err) {
+    } catch {
       // Safe fallback
     }
   }, [eventId]);
@@ -64,7 +64,7 @@ export function EventBookingPage({
           setLayout(venueLayout);
           setSeats(seatData);
         }
-      } catch (err) {
+      } catch {
         // Safe fallback
       } finally {
         if (isMounted) {
