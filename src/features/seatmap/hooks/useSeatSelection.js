@@ -65,6 +65,7 @@ export function useSeatSelection(initialSelected = []) {
 
   return {
     selectedSeats,
+    setSelectedSeats,
     alertMessage,
     seatCount,
     subtotal,

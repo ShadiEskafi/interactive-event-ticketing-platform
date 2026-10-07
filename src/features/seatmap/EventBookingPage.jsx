@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { SeatMap } from './SeatMap';
 import { CartSummary } from './components/CartSummary';
 import { useSeatSelection } from './hooks/useSeatSelection';
-import { mockTicketingService } from './services/mockTicketingService';
+import { ticketingService as mockTicketingService } from '../../services';
 import {
   useSeatHold,
   useRealtimeSeats,
@@ -10,6 +10,7 @@ import {
   HoldCheckoutView,
   persistPendingBooking,
   clearPendingBooking,
+  getStoredPendingBooking,
 } from '../hold';
 import { useAuth, AuthModal } from '../auth';
 import { TicketReceiptPage } from '../tickets';
@@ -38,6 +39,7 @@ export function EventBookingPage({
 
   const {
     selectedSeats,
+    setSelectedSeats,
     alertMessage,
     subtotal,
     tierSummary,
@@ -50,6 +52,7 @@ export function EventBookingPage({
     isLocking,
     holdError,
     reservationData,
+    setReservationData,
     isExpired,
     reserve,
     release,
@@ -80,6 +83,52 @@ export function EventBookingPage({
         if (isMounted) {
           setLayout(venueLayout);
           setSeats(seatData);
+
+          // Hold Hydration on Mount: check if pending_booking or active hold exists in sessionStorage
+          const pending = getStoredPendingBooking();
+          if (pending && pending.reservedUntil) {
+            const untilMs = new Date(pending.reservedUntil).getTime();
+            if (untilMs > Date.now()) {
+              // 1. Re-attach held seats to user's cart
+              let seatsToRestore = [];
+              if (pending.seats && pending.seats.length > 0) {
+                seatsToRestore = pending.seats;
+              } else if (pending.seatIds && pending.seatIds.length > 0) {
+                seatsToRestore = seatData.filter((s) => pending.seatIds.includes(s.id));
+              }
+
+              if (seatsToRestore.length > 0) {
+                setSelectedSeats(seatsToRestore);
+              }
+
+              // 2. Re-attach reservation data to restore hold timer
+              if (setReservationData) {
+                setReservationData({
+                  seatIds: pending.seatIds || seatsToRestore.map((s) => s.id),
+                  reservedUntil: pending.reservedUntil,
+                  userId: pending.anonymousSessionId || pending.userId,
+                });
+              }
+
+              // 3. Re-open checkout / auth modal state
+              if (pending.isAuthModalOpen || (requireAuth && !user && pending.viewMode !== 'checkout')) {
+                setIsAuthModalOpen(true);
+                setViewMode('map');
+              } else if (pending.viewMode === 'checkout' || user) {
+                setViewMode('checkout');
+              }
+            } else {
+              // Hold expired: automatically clear storage and release hold
+              clearPendingBooking();
+              if (pending.seatIds && pending.seatIds.length > 0) {
+                mockTicketingService.releaseSeats(
+                  pending.eventId || eventId,
+                  pending.seatIds,
+                  pending.anonymousSessionId || pending.userId
+                );
+              }
+            }
+          }
         }
       } catch {
         // Safe fallback
@@ -95,17 +144,38 @@ export function EventBookingPage({
     return () => {
       isMounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueId, eventId]);
 
-  // Subscribe to Realtime seat updates (simulating Supabase Realtime channel)
+  // Subscribe to Realtime seat updates (Supabase Realtime channel / mock fallback)
   useRealtimeSeats(
     eventId,
-    useCallback((updatedSeats) => {
+    useCallback((update) => {
       setSeats((prevSeats) => {
-        const updatedMap = new Map(updatedSeats.map((s) => [s.id, s]));
-        return prevSeats.map((seat) =>
-          updatedMap.has(seat.id) ? { ...seat, ...updatedMap.get(seat.id) } : seat
-        );
+        const updateArray = Array.isArray(update) ? update : [update];
+        const normalized = updateArray.map((s) => ({
+          id: s.id,
+          rowLabel: s.row_label || s.rowLabel,
+          seatNumber: s.seat_number || s.seatNumber,
+          category: s.category,
+          price: s.price !== undefined ? parseFloat(s.price) : undefined,
+          status: s.status,
+          reservedBy: s.reserved_by !== undefined ? s.reserved_by : s.reservedBy,
+          reservedUntil: s.reserved_until !== undefined ? s.reserved_until : s.reservedUntil,
+        }));
+        const updatedMap = new Map(normalized.map((s) => [s.id, s]));
+        return prevSeats.map((seat) => {
+          if (!updatedMap.has(seat.id)) return seat;
+          const patch = updatedMap.get(seat.id);
+          return {
+            ...seat,
+            status: patch.status ?? seat.status,
+            reservedBy: patch.reservedBy !== undefined ? patch.reservedBy : seat.reservedBy,
+            reservedUntil: patch.reservedUntil !== undefined ? patch.reservedUntil : seat.reservedUntil,
+            category: patch.category ?? seat.category,
+            price: patch.price !== undefined && !isNaN(patch.price) ? patch.price : seat.price,
+          };
+        });
       });
     }, [])
   );
@@ -132,9 +202,21 @@ export function EventBookingPage({
         reservedUntil: result.reserved_until,
         subtotal,
         anonymousSessionId: result.reserved_by,
+        isAuthModalOpen: true,
+        viewMode: 'map',
       });
       setIsAuthModalOpen(true);
     } else {
+      persistPendingBooking({
+        eventId,
+        seatIds,
+        seats: selectedSeats,
+        reservedUntil: result.reserved_until,
+        subtotal,
+        anonymousSessionId: result.reserved_by,
+        isAuthModalOpen: false,
+        viewMode: 'checkout',
+      });
       setViewMode('checkout');
     }
   };
@@ -155,12 +237,30 @@ export function EventBookingPage({
       // Safe fallback
     }
 
+    if (reservationData) {
+      persistPendingBooking({
+        eventId,
+        seatIds,
+        seats: selectedSeats,
+        reservedUntil: reservationData.reservedUntil,
+        subtotal,
+        anonymousSessionId: authenticatedUser.id,
+        isAuthModalOpen: false,
+        viewMode: 'checkout',
+      });
+    }
+
     setIsAuthModalOpen(false);
     setViewMode('checkout');
   };
 
-  const handleCloseAuthModal = () => {
+  const handleCloseAuthModal = async () => {
     setIsAuthModalOpen(false);
+    if (reservationData?.seatIds) {
+      await release(eventId, reservationData.seatIds);
+    }
+    clearPendingBooking();
+    await refreshSeats();
   };
 
   const handleModalExpire = async () => {

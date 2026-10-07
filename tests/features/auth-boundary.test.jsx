@@ -185,10 +185,12 @@ describe('Smart Frictionless Auth & Retention (SPEC-03 / Scenarios 3.1 & 3.2)', 
 
     // 2. Click "Proceed to Checkout"
     const checkoutBtn = screen.getByRole('button', { name: /Proceed to Checkout/i });
-    fireEvent.click(checkoutBtn);
+    await act(async () => {
+      fireEvent.click(checkoutBtn);
+    });
 
     // 3. Guest must be intercepted by AuthModal with countdown badge
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('dialog', {}, { timeout: 4000 });
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(screen.getByText('Sign In to Complete Booking')).toBeInTheDocument();

@@ -37,6 +37,7 @@ coverage/
 .eslintcache/
 *.tmp
 *.temp
+Ticket-*.pdf
 
 # AI Assistants & Agents (Local scratch, workspaces, configs)
 .agent/

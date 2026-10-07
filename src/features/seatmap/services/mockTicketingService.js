@@ -337,6 +337,9 @@ export class MockTicketingService {
     this.listeners.clear();
     this.bookings = [];
     this.tickets = [];
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.clear();
+    }
   }
 }
 

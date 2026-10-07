@@ -3,7 +3,7 @@ import { HoldTimer } from './HoldTimer';
 import { SessionExpiredModal } from './SessionExpiredModal';
 import { useHoldLifecycle } from './hooks/useHoldLifecycle';
 import { formatCurrency } from '../seatmap/utils/formatters';
-import { mockTicketingService } from '../seatmap/services/mockTicketingService';
+import { ticketingService as mockTicketingService } from '../../services';
 
 /**
  * Hold Checkout View Container

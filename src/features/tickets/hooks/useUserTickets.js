@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { mockTicketingService } from '../../seatmap/services/mockTicketingService';
+import { ticketingService as mockTicketingService } from '../../../services';
 
 /**
  * Custom hook retrieving and organizing user's issued tickets (SPEC-04 / REQ-TICK-04.5)
