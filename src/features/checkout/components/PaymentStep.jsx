@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { HoldTimer } from '../../hold/HoldTimer';
 import { formatCurrency } from '../../seatmap/utils/formatters';
-import { mockTicketingService } from '../../seatmap/services/mockTicketingService';
+import { ticketingService as mockTicketingService } from '../../../services';
 import '../CheckoutFlow.css';
 
 /**

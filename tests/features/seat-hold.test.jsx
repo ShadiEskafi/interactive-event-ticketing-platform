@@ -6,6 +6,7 @@ import { mockTicketingService } from '../../src/features/seatmap/services/mockTi
 describe('Seat Hold & Concurrency Control (SPEC-02 / REQ-HOLD-02.1)', () => {
   beforeEach(() => {
     mockTicketingService.resetState();
+    window.sessionStorage.clear();
   });
 
   it('atomically locks selected seats and transitions to checkout on success', async () => {

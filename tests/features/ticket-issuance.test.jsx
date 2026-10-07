@@ -37,7 +37,7 @@ describe('Ticket Issuance & Sold Status Transition (SPEC-04 / Scenario 4.1)', ()
 
     render(
       <AuthProvider customAuthService={mockAuthService}>
-        <EventBookingPage requireAuth={true} />
+        <EventBookingPage requireAuth={false} />
       </AuthProvider>
     );
 

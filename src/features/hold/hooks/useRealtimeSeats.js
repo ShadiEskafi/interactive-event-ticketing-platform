@@ -1,14 +1,14 @@
 import { useEffect } from 'react';
-import { mockTicketingService } from '../../seatmap/services/mockTicketingService';
+import { ticketingService } from '../../../services';
 
 /**
- * Custom hook subscribing to Realtime seat updates (simulating Supabase Realtime channel)
+ * Custom hook subscribing to Realtime seat updates (Supabase Realtime channel or mock fallback)
  */
 export function useRealtimeSeats(eventId, onSeatsUpdated) {
   useEffect(() => {
     if (!eventId || !onSeatsUpdated) return;
 
-    const unsubscribe = mockTicketingService.subscribeToSeatChanges(
+    const unsubscribe = ticketingService.subscribeToSeatChanges(
       eventId,
       (updatedSeats) => {
         onSeatsUpdated(updatedSeats);
@@ -16,7 +16,9 @@ export function useRealtimeSeats(eventId, onSeatsUpdated) {
     );
 
     return () => {
-      unsubscribe();
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
     };
   }, [eventId, onSeatsUpdated]);
 }

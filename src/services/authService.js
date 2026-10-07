@@ -1,14 +1,44 @@
+import { supabase } from './supabaseClient';
+
 /**
- * Authentication Service Abstraction (SPEC-03 / FEAT-AUTH-03)
- * Provides authentication interface for Email/Password and OAuth.
+ * Authentication Service (SPEC-03 / FEAT-AUTH-03)
+ * Seamlessly integrates Supabase Auth in production with in-memory fallback for test isolation.
  */
 class AuthService {
   constructor() {
     this.currentUser = null;
     this.listeners = new Set();
+    this.useSupabase = Boolean(
+      typeof window !== 'undefined' &&
+      import.meta.env.VITE_SUPABASE_ANON_KEY &&
+      !import.meta.env.VITEST
+    );
+
+    if (this.useSupabase) {
+      try {
+        supabase.auth.onAuthStateChange((_event, session) => {
+          this.currentUser = session?.user || null;
+          this.notifyAuthState(this.currentUser);
+        });
+      } catch {
+        // Safe fallback
+      }
+    }
   }
 
   async getSession() {
+    if (this.useSupabase) {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!error && data?.session) {
+          this.currentUser = data.session.user;
+          return { session: data.session, user: data.session.user };
+        }
+      } catch {
+        // Safe fallback
+      }
+    }
+
     return {
       session: this.currentUser ? { user: this.currentUser } : null,
       user: this.currentUser,
@@ -24,6 +54,23 @@ class AuthService {
       return { user: null, error: new Error('Invalid email or password.') };
     }
 
+    if (this.useSupabase) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (!error && data?.user) {
+          this.currentUser = data.user;
+          this.notifyAuthState(data.user);
+          return { user: data.user, error: null };
+        }
+        if (error) {
+          return { user: null, error };
+        }
+      } catch (err) {
+        return { user: null, error: err };
+      }
+    }
+
+    // Deterministic fallback for test suites and offline demo
     const user = {
       id: `usr_${Math.random().toString(36).substring(2, 9)}`,
       email,
@@ -34,13 +81,34 @@ class AuthService {
 
     this.currentUser = user;
     this.notifyAuthState(user);
-
     return { user, error: null };
   }
 
   async signUp({ email, password, fullName }) {
     if (!email || !password) {
       return { user: null, error: new Error('Email and password are required.') };
+    }
+
+    if (this.useSupabase) {
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: fullName || email.split('@')[0] },
+          },
+        });
+        if (!error && data?.user) {
+          this.currentUser = data.user;
+          this.notifyAuthState(data.user);
+          return { user: data.user, error: null };
+        }
+        if (error) {
+          return { user: null, error };
+        }
+      } catch (err) {
+        return { user: null, error: err };
+      }
     }
 
     const user = {
@@ -53,11 +121,27 @@ class AuthService {
 
     this.currentUser = user;
     this.notifyAuthState(user);
-
     return { user, error: null };
   }
 
   async signInWithOAuth(provider) {
+    if (this.useSupabase) {
+      try {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+          },
+        });
+        if (error) {
+          return { user: null, error };
+        }
+        return { user: data?.user || null, error: null, provider };
+      } catch (err) {
+        return { user: null, error: err };
+      }
+    }
+
     const user = {
       id: `usr_oauth_${provider}_${Math.random().toString(36).substring(2, 9)}`,
       email: `attendee.${provider}@example.com`,
@@ -68,11 +152,17 @@ class AuthService {
 
     this.currentUser = user;
     this.notifyAuthState(user);
-
     return { user, error: null, provider };
   }
 
   async signOut() {
+    if (this.useSupabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // Safe fallback
+      }
+    }
     this.currentUser = null;
     this.notifyAuthState(null);
     return { error: null };
@@ -95,7 +185,6 @@ class AuthService {
     });
   }
 
-  // Helper for test state overrides
   setUser(user) {
     this.currentUser = user;
     this.notifyAuthState(user);
@@ -103,3 +192,4 @@ class AuthService {
 }
 
 export const authService = new AuthService();
+export { AuthService };

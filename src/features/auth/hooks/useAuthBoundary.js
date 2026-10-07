@@ -32,13 +32,22 @@ export function useAuthBoundary({
     (anonId) => {
       if (typeof window === 'undefined' || !window.sessionStorage) return;
 
+      const effectiveAnon = anonId || anonymousSessionId;
+      if (effectiveAnon) {
+        try {
+          window.sessionStorage.setItem('ticketcraft_anon_session_id', effectiveAnon);
+        } catch {
+          // Safe fallback
+        }
+      }
+
       const payload = {
         eventId,
         seatIds: selectedSeats.map((s) => s.id),
         seats: selectedSeats,
         reservedUntil,
         subtotal,
-        anonymousSessionId: anonId || anonymousSessionId,
+        anonymousSessionId: effectiveAnon,
       };
 
       try {
