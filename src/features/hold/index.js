@@ -14,4 +14,5 @@ export {
 } from './hooks/useSeatHold';
 export { useRealtimeSeats } from './hooks/useRealtimeSeats';
 export { useHoldLifecycle } from './hooks/useHoldLifecycle';
+export { useExpiredSeatsCleanup } from './hooks/useExpiredSeatsCleanup';
 export { formatTimeRemaining, computeRemainingSeconds } from './utils/timeFormatters';

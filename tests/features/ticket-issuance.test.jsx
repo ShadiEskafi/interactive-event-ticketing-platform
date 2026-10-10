@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { EventBookingPage } from '../../src/features/seatmap/EventBookingPage';
 import { AuthProvider } from '../../src/features/auth';
@@ -30,6 +30,12 @@ describe('Ticket Issuance & Sold Status Transition (SPEC-04 / Scenario 4.1)', ()
 
   beforeEach(() => {
     mockTicketingService.resetState();
+    window.sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    mockTicketingService.resetState();
+    window.sessionStorage.clear();
   });
 
   it('permanently marks seats as sold (#9CA3AF) upon payment confirmation and renders receipt', async () => {

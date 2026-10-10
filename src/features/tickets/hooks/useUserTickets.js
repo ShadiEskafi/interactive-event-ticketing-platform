@@ -5,38 +5,54 @@ import { ticketingService as mockTicketingService } from '../../../services';
  * Custom hook retrieving and organizing user's issued tickets (SPEC-04 / REQ-TICK-04.5)
  */
 export function useUserTickets(userId) {
+  const resolveEffectiveUserId = useCallback(() => {
+    if (userId) return userId;
+    if (typeof window !== 'undefined') {
+      return (
+        window.localStorage?.getItem('ticketcraft_anon_session_id') ||
+        window.sessionStorage?.getItem('ticketcraft_anon_session_id') ||
+        null
+      );
+    }
+    return null;
+  }, [userId]);
+
   const [tickets, setTickets] = useState([]);
-  const [isLoading, setIsLoading] = useState(Boolean(userId));
+  const [isLoading, setIsLoading] = useState(() => Boolean(resolveEffectiveUserId()));
   const [error, setError] = useState(null);
 
   const fetchTickets = useCallback(async () => {
-    if (!userId) {
+    const effectiveId = resolveEffectiveUserId();
+    if (!effectiveId) {
       setTickets([]);
       setIsLoading(false);
       return;
     }
 
     try {
-      const userTickets = await mockTicketingService.getUserTickets(userId);
-      setTickets(userTickets);
+      setIsLoading(true);
+      setError(null);
+      const userTickets = await mockTicketingService.getUserTickets(effectiveId);
+      setTickets(userTickets || []);
     } catch (err) {
       setError(err.message || 'Failed to load tickets');
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, [resolveEffectiveUserId]);
 
   useEffect(() => {
     let isMounted = true;
-    if (!userId) {
+    const effectiveId = resolveEffectiveUserId();
+    if (!effectiveId) {
       return;
     }
 
     mockTicketingService
-      .getUserTickets(userId)
+      .getUserTickets(effectiveId)
       .then((userTickets) => {
         if (isMounted) {
-          setTickets(userTickets);
+          setTickets(userTickets || []);
           setIsLoading(false);
         }
       })
@@ -50,7 +66,7 @@ export function useUserTickets(userId) {
     return () => {
       isMounted = false;
     };
-  }, [userId]);
+  }, [resolveEffectiveUserId]);
 
   // Group tickets by event_id or event_title
   const groupedTickets = tickets.reduce((acc, ticket) => {

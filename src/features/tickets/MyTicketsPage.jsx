@@ -3,6 +3,7 @@ import { useAuth } from '../auth/hooks/useAuth';
 import { useUserTickets } from './hooks/useUserTickets';
 import { EventTicketGroup } from './components/EventTicketGroup';
 import { FullScreenQRModal } from './components/FullScreenQRModal';
+import { useLanguage } from '../../context';
 import './Tickets.css';
 
 /**
@@ -13,7 +14,13 @@ export function MyTicketsPage({
   onExploreEvents,
 }) {
   const { user } = useAuth();
-  const effectiveUserId = userId || user?.id;
+  const { t } = useLanguage();
+  const storedAnonId =
+    typeof window !== 'undefined'
+      ? window.localStorage?.getItem('ticketcraft_anon_session_id') ||
+        window.sessionStorage?.getItem('ticketcraft_anon_session_id')
+      : null;
+  const effectiveUserId = userId || user?.id || storedAnonId;
   const { groupedTickets, isLoading, error } = useUserTickets(effectiveUserId);
 
   const [activeTab, setActiveTab] = useState('upcoming');
@@ -30,9 +37,9 @@ export function MyTicketsPage({
   return (
     <div className="my-tickets-container" data-testid="my-tickets-page">
       <header className="my-tickets-header">
-        <h1 className="my-tickets-title">My Tickets</h1>
+        <h1 className="my-tickets-title">{t('tickets.title', 'My Tickets')}</h1>
         <p className="my-tickets-subtitle">
-          Manage your confirmed event bookings and access high-contrast QR entry passes.
+          {t('tickets.subtitle', 'Manage your confirmed event bookings and access high-contrast QR entry passes.')}
         </p>
       </header>
 
@@ -45,7 +52,7 @@ export function MyTicketsPage({
           className={`my-tickets-tab ${activeTab === 'upcoming' ? 'active' : ''}`}
           onClick={() => setActiveTab('upcoming')}
         >
-          Upcoming Events
+          {t('tickets.tab_upcoming', 'Upcoming Events')}
         </button>
         <button
           type="button"
@@ -54,14 +61,14 @@ export function MyTicketsPage({
           className={`my-tickets-tab ${activeTab === 'past' ? 'active' : ''}`}
           onClick={() => setActiveTab('past')}
         >
-          Past Events
+          {t('tickets.tab_past', 'Past Events')}
         </button>
       </div>
 
       {/* Content Area */}
       {isLoading ? (
         <div className="loading-state" style={{ color: '#94A3B8', padding: '3rem', textAlign: 'center' }}>
-          Loading your confirmed tickets...
+          {t('tickets.loading', 'Loading your confirmed tickets...')}
         </div>
       ) : error ? (
         <div className="auth-error-banner" role="alert">
@@ -69,11 +76,11 @@ export function MyTicketsPage({
         </div>
       ) : groupedTickets.length === 0 || activeTab === 'past' ? (
         <div className="empty-state" data-testid="empty-tickets-state">
-          <h3>No Tickets Found</h3>
+          <h3>{t('tickets.no_tickets_title', 'No Tickets Found')}</h3>
           <p>
             {activeTab === 'past'
-              ? 'You have no past event tickets.'
-              : 'You have no active event passes yet. Browse available seats and book your first concert experience.'}
+              ? t('tickets.no_past_desc', 'You have no past event tickets.')
+              : t('tickets.no_tickets_desc', 'You have no active event passes yet. Browse available seats and book your first concert experience.')}
           </p>
           {onExploreEvents && activeTab === 'upcoming' && (
             <button
@@ -83,7 +90,7 @@ export function MyTicketsPage({
               style={{ marginTop: '1.25rem' }}
               onClick={onExploreEvents}
             >
-              Explore Events
+              {t('tickets.explore_events', 'Explore Events')}
             </button>
           )}
         </div>

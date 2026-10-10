@@ -5,24 +5,31 @@ export const ANON_SESSION_KEY = 'ticketcraft_anon_session_id';
 export const PENDING_BOOKING_STORAGE_KEY = 'pending_booking';
 
 /**
- * Retrieve or generate a client-side anonymous session UUID, persisted in sessionStorage.
+ * Retrieve or generate a client-side anonymous session UUID, persisted across tabs in localStorage.
  */
 export function getOrCreateAnonymousSessionId() {
-  if (typeof window === 'undefined' || !window.sessionStorage) {
+  if (typeof window === 'undefined') {
     return `anon_session_${Math.random().toString(36).substring(2, 9)}`;
   }
 
   try {
-    const existing = window.sessionStorage.getItem(ANON_SESSION_KEY);
+    const existing =
+      window.localStorage?.getItem(ANON_SESSION_KEY) ||
+      window.sessionStorage?.getItem(ANON_SESSION_KEY);
     if (existing) {
+      window.localStorage?.setItem(ANON_SESSION_KEY, existing);
+      window.sessionStorage?.setItem(ANON_SESSION_KEY, existing);
       return existing;
     }
 
-    const stored = window.sessionStorage.getItem(PENDING_BOOKING_STORAGE_KEY);
+    const stored =
+      window.localStorage?.getItem(PENDING_BOOKING_STORAGE_KEY) ||
+      window.sessionStorage?.getItem(PENDING_BOOKING_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
       if (parsed?.anonymousSessionId) {
-        window.sessionStorage.setItem(ANON_SESSION_KEY, parsed.anonymousSessionId);
+        window.localStorage?.setItem(ANON_SESSION_KEY, parsed.anonymousSessionId);
+        window.sessionStorage?.setItem(ANON_SESSION_KEY, parsed.anonymousSessionId);
         return parsed.anonymousSessionId;
       }
     }
@@ -37,7 +44,8 @@ export function getOrCreateAnonymousSessionId() {
   }`;
 
   try {
-    window.sessionStorage.setItem(ANON_SESSION_KEY, generatedId);
+    window.localStorage?.setItem(ANON_SESSION_KEY, generatedId);
+    window.sessionStorage?.setItem(ANON_SESSION_KEY, generatedId);
   } catch {
     // Storage quota fallback
   }
@@ -46,12 +54,14 @@ export function getOrCreateAnonymousSessionId() {
 }
 
 /**
- * Safely parse and retrieve pending booking details from sessionStorage.
+ * Safely parse and retrieve pending booking details from localStorage or sessionStorage.
  */
 export function getStoredPendingBooking() {
-  if (typeof window === 'undefined' || !window.sessionStorage) return null;
+  if (typeof window === 'undefined') return null;
   try {
-    const raw = window.sessionStorage.getItem(PENDING_BOOKING_STORAGE_KEY);
+    const raw =
+      window.sessionStorage?.getItem(PENDING_BOOKING_STORAGE_KEY) ||
+      window.localStorage?.getItem(PENDING_BOOKING_STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
@@ -60,15 +70,18 @@ export function getStoredPendingBooking() {
 }
 
 /**
- * Persist pending booking details in sessionStorage and anchor the anonymous session ID.
+ * Persist pending booking details and anchor anonymous session ID in both localStorage and sessionStorage.
  */
 export function persistPendingBooking(data) {
-  if (typeof window !== 'undefined' && window.sessionStorage) {
+  if (typeof window !== 'undefined') {
     try {
       if (data?.anonymousSessionId) {
-        window.sessionStorage.setItem(ANON_SESSION_KEY, data.anonymousSessionId);
+        window.localStorage?.setItem(ANON_SESSION_KEY, data.anonymousSessionId);
+        window.sessionStorage?.setItem(ANON_SESSION_KEY, data.anonymousSessionId);
       }
-      window.sessionStorage.setItem(PENDING_BOOKING_STORAGE_KEY, JSON.stringify(data));
+      const raw = JSON.stringify(data);
+      window.sessionStorage?.setItem(PENDING_BOOKING_STORAGE_KEY, raw);
+      window.localStorage?.setItem(PENDING_BOOKING_STORAGE_KEY, raw);
     } catch {
       // Storage quota fallback
     }
@@ -76,12 +89,13 @@ export function persistPendingBooking(data) {
 }
 
 /**
- * Remove pending booking from sessionStorage upon release or completion.
+ * Remove pending booking from storage upon release or completion.
  */
 export function clearPendingBooking() {
-  if (typeof window !== 'undefined' && window.sessionStorage) {
+  if (typeof window !== 'undefined') {
     try {
-      window.sessionStorage.removeItem(PENDING_BOOKING_STORAGE_KEY);
+      window.sessionStorage?.removeItem(PENDING_BOOKING_STORAGE_KEY);
+      window.localStorage?.removeItem(PENDING_BOOKING_STORAGE_KEY);
     } catch {
       // Storage remove error fallback
     }
