@@ -14,10 +14,12 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
     "html-to-image": "^1.11.13",
+    "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "vite-plugin-pwa": "^2.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

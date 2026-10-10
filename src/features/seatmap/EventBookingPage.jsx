@@ -11,9 +11,11 @@ import {
   persistPendingBooking,
   clearPendingBooking,
   getStoredPendingBooking,
+  useExpiredSeatsCleanup,
 } from '../hold';
 import { useAuth, AuthModal } from '../auth';
 import { TicketReceiptPage } from '../tickets';
+import { useLanguage } from '../../context';
 import './SeatMap.css';
 import '../hold/Hold.css';
 import '../checkout/CheckoutFlow.css';
@@ -24,8 +26,10 @@ import '../checkout/CheckoutFlow.css';
 export function EventBookingPage({
   venueId = '00000000-0000-0000-0000-000000000001',
   eventId = 'evt-symphony-2026',
+  eventName = 'Grand Symphony Concert',
   requireAuth = true,
   onNavigateToDashboard,
+  onBackToEvents,
 }) {
   const [layout, setLayout] = useState(null);
   const [seats, setSeats] = useState([]);
@@ -35,6 +39,7 @@ export function EventBookingPage({
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [authedAttendee, setAuthedAttendee] = useState(null);
 
   const {
@@ -60,9 +65,17 @@ export function EventBookingPage({
     clearHoldError,
   } = useSeatHold();
 
+  // Background defensive sweep for expired seat holds
+  useExpiredSeatsCleanup(eventId);
+
   // Load initial layout and seats
   const refreshSeats = useCallback(async () => {
     try {
+      try {
+        await mockTicketingService.releaseExpiredSeats(eventId);
+      } catch {
+        // Safe sweep fallback
+      }
       const seatData = await mockTicketingService.getSeatAvailability(eventId);
       setSeats(seatData);
     } catch {
@@ -76,6 +89,11 @@ export function EventBookingPage({
     async function loadInitialData() {
       try {
         setIsLoading(true);
+        try {
+          await mockTicketingService.releaseExpiredSeats(eventId);
+        } catch {
+          // Safe sweep fallback
+        }
         const [venueLayout, seatData] = await Promise.all([
           mockTicketingService.getVenueLayout(venueId),
           mockTicketingService.getSeatAvailability(eventId),
@@ -295,7 +313,19 @@ export function EventBookingPage({
       {/* Event Header */}
       <header className="event-header">
         <div className="event-header-content">
-          <h1 className="event-title">Grand Symphony Concert</h1>
+          {onBackToEvents && (
+            <div className="event-back-nav">
+              <button
+                type="button"
+                className="btn-back-to-events"
+                data-testid="btn-back-to-events"
+                onClick={onBackToEvents}
+              >
+                &larr; {t('events.back_to_events', 'Back to Events').replace(/^←\s*/, '')}
+              </button>
+            </div>
+          )}
+          <h1 className="event-title">{eventName || 'Grand Symphony Concert'}</h1>
           <div className="event-meta">
             <span className="event-meta-item">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

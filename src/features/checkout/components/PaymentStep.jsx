@@ -26,16 +26,31 @@ export function PaymentStep({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     if (isExpired || isSubmitting) return;
-
     setIsSubmitting(true);
     try {
       const seatIds = selectedSeats.map((s) => s.id);
+      const storedAnonId =
+        typeof window !== 'undefined'
+          ? window.localStorage?.getItem('ticketcraft_anon_session_id') ||
+            window.sessionStorage?.getItem('ticketcraft_anon_session_id')
+          : null;
+      const effectiveUserId = user?.id || storedAnonId;
+
+      if (!user?.id && storedAnonId && typeof window !== 'undefined') {
+        try {
+          window.localStorage?.setItem('ticketcraft_anon_session_id', storedAnonId);
+          window.sessionStorage?.setItem('ticketcraft_anon_session_id', storedAnonId);
+        } catch {
+          // Safe fallback
+        }
+      }
+
       const result = await mockTicketingService.confirmBooking({
         eventId: 'evt-symphony-2026',
         seatIds,
-        userId: user?.id,
+        userId: effectiveUserId,
         attendeeName: formData.name || 'Valued Attendee',
         attendeeEmail: formData.email || 'attendee@example.com',
         paymentDetails: { cardNumber: formData.cardNumber },

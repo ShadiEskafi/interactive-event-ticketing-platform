@@ -30,12 +30,18 @@ export function useAuthBoundary({
    */
   const persistPendingBooking = useCallback(
     (anonId) => {
-      if (typeof window === 'undefined' || !window.sessionStorage) return;
+      if (typeof window === 'undefined') return;
 
-      const effectiveAnon = anonId || anonymousSessionId;
+      const effectiveAnon =
+        anonId ||
+        anonymousSessionId ||
+        window.localStorage?.getItem('ticketcraft_anon_session_id') ||
+        window.sessionStorage?.getItem('ticketcraft_anon_session_id');
+
       if (effectiveAnon) {
         try {
-          window.sessionStorage.setItem('ticketcraft_anon_session_id', effectiveAnon);
+          window.localStorage?.setItem('ticketcraft_anon_session_id', effectiveAnon);
+          window.sessionStorage?.setItem('ticketcraft_anon_session_id', effectiveAnon);
         } catch {
           // Safe fallback
         }
@@ -51,7 +57,9 @@ export function useAuthBoundary({
       };
 
       try {
-        window.sessionStorage.setItem(PENDING_BOOKING_KEY, JSON.stringify(payload));
+        const raw = JSON.stringify(payload);
+        window.sessionStorage?.setItem(PENDING_BOOKING_KEY, raw);
+        window.localStorage?.setItem(PENDING_BOOKING_KEY, raw);
       } catch {
         // Quota fallback
       }
@@ -74,7 +82,7 @@ export function useAuthBoundary({
         return { canProceed: true, isDirect: true };
       }
 
-      // 2. Unauthenticated: write pending_booking to sessionStorage and open AuthModal
+      // 2. Unauthenticated: write pending_booking to storage and open AuthModal
       persistPendingBooking(activeAnonId);
       setIsExpired(false);
       setIsAuthModalOpen(true);
@@ -90,12 +98,17 @@ export function useAuthBoundary({
   }, [isExpired]);
 
   /**
-   * Handles post-authentication account linkage and hold transfer
+   * Handles post-authentication account linkage, hold transfer, and ticket claiming
    */
   const handleAuthSuccess = useCallback(
     async (authenticatedUser) => {
       const seatIds = selectedSeats.map((s) => s.id);
-      const effectiveAnonId = anonymousSessionId;
+      const effectiveAnonId =
+        anonymousSessionId ||
+        (typeof window !== 'undefined'
+          ? window.localStorage?.getItem('ticketcraft_anon_session_id') ||
+            window.sessionStorage?.getItem('ticketcraft_anon_session_id')
+          : null);
 
       try {
         // Transfer temporary hold to authenticated user
@@ -107,6 +120,15 @@ export function useAuthBoundary({
         );
       } catch {
         // Resilient fallback
+      }
+
+      // Immediately claim any tickets booked under the anonymous session ID
+      if (authenticatedUser?.id && effectiveAnonId && service.claimTickets) {
+        try {
+          await service.claimTickets(authenticatedUser.id, effectiveAnonId);
+        } catch {
+          // Resilient fallback
+        }
       }
 
       setIsAuthModalOpen(false);
@@ -129,9 +151,10 @@ export function useAuthBoundary({
   const handleHoldExpired = useCallback(async () => {
     setIsExpired(true);
 
-    if (typeof window !== 'undefined' && window.sessionStorage) {
+    if (typeof window !== 'undefined') {
       try {
-        window.sessionStorage.removeItem(PENDING_BOOKING_KEY);
+        window.sessionStorage?.removeItem(PENDING_BOOKING_KEY);
+        window.localStorage?.removeItem(PENDING_BOOKING_KEY);
       } catch {
         // Safe fallback
       }

@@ -1,5 +1,6 @@
 export { TicketReceiptPage } from './TicketReceiptPage';
 export { MyTicketsPage } from './MyTicketsPage';
+export { TicketDashboard } from './TicketDashboard';
 export { TicketPassView } from './components/TicketPassView';
 export { QRCodeDisplay } from './components/QRCodeDisplay';
 export { FullScreenQRModal } from './components/FullScreenQRModal';

@@ -654,3 +654,20 @@
   color: #ffffff;
   margin-bottom: 0.5rem;
 }
+
+/* RTL Adjustments for Tickets Dashboard */
+[dir="rtl"] .my-tickets-container {
+  text-align: right;
+}
+
+[dir="rtl"] .my-tickets-tabs {
+  flex-direction: row;
+}
+
+[dir="rtl"] .ticket-card-content {
+  text-align: right;
+}
+
+[dir="rtl"] .ticket-card-header {
+  flex-direction: row;
+}

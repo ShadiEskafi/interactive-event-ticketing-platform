@@ -35,6 +35,12 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+
+.navbar-brand:hover {
+  opacity: 0.9;
 }
 
 .brand-icon {
@@ -163,5 +169,51 @@
 .nav-link-btn.active {
   color: #38BDF8;
   background: rgba(56, 189, 248, 0.1);
+}
+
+/* Language Switcher Button */
+.nav-btn-lang {
+  background: rgba(255, 255, 255, 0.07);
+  color: #E2E8F0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-btn-lang:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: #38BDF8;
+  color: #FFFFFF;
+}
+
+.navbar-user-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* RTL Layout Directional Support */
+[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] .navbar-brand {
+  text-align: right;
+}
+
+[dir="rtl"] .nav-center-links {
+  flex-direction: row;
+}
+
+[dir="rtl"] .user-identity {
+  text-align: right;
 }
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import '@testing-library/jest-dom';
+import { beforeEach } from 'vitest';
 
 globalThis.React = React;
 
@@ -15,3 +16,11 @@ if (typeof SVGElement !== 'undefined' && !SVGElement.prototype.focus) {
     }
   };
 }
+
+beforeEach(() => {
+  if (typeof window !== 'undefined') {
+    window.localStorage?.clear();
+    window.sessionStorage?.clear();
+  }
+});
+

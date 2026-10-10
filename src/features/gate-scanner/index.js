@@ -1,0 +1,11 @@
+export { GateScannerPage } from './GateScannerPage';
+export { CameraScanner } from './components/CameraScanner';
+export { ScanResultOverlay } from './components/ScanResultOverlay';
+export { GateStatsBar } from './components/GateStatsBar';
+export { ManualEntryModal } from './components/ManualEntryModal';
+export { GateSelectorModal } from './components/GateSelectorModal';
+export { useGateScanner } from './hooks/useGateScanner';
+export { useAudioFeedback } from './hooks/useAudioFeedback';
+export { useOfflineSync } from './hooks/useOfflineSync';
+export { gateValidationService, GateValidationService } from './services/gateValidationService';
+export { offlineStorage } from './services/offlineStorage';
