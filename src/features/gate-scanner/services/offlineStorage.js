@@ -81,64 +81,121 @@ export const offlineStorage = {
    * Retrieves a cached ticket by code or id
    */
   async getCachedTicket(ticketCode) {
+    if (!ticketCode) return null;
+
+    let match;
     const db = await openDB();
     if (!db) {
       const direct = memoryCache.tickets.get(ticketCode);
-      if (direct) return direct;
-      return (
-        Array.from(memoryCache.tickets.values()).find(
-          (t) => t.ticket_code === ticketCode || t.id === ticketCode
-        ) || null
-      );
+      if (direct) {
+        match = direct;
+      } else {
+        match = (
+          Array.from(memoryCache.tickets.values()).find(
+            (t) => t.ticket_code === ticketCode || t.id === ticketCode
+          ) || null
+        );
+      }
+    } else {
+      match = await new Promise((resolve) => {
+        try {
+          const tx = db.transaction('cached_tickets', 'readonly');
+          const store = tx.objectStore('cached_tickets');
+          const req = store.get(ticketCode);
+          req.onsuccess = () => {
+            if (req.result) {
+              resolve(req.result);
+            } else {
+              const allReq = store.getAll();
+              allReq.onsuccess = () => {
+                const found = (allReq.result || []).find(
+                  (t) => t.ticket_code === ticketCode || t.id === ticketCode
+                );
+                resolve(found || null);
+              };
+              allReq.onerror = () => resolve(null);
+            }
+          };
+          req.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      });
     }
 
-    return new Promise((resolve) => {
-      try {
-        const tx = db.transaction('cached_tickets', 'readonly');
-        const store = tx.objectStore('cached_tickets');
-        const req = store.get(ticketCode);
-        req.onsuccess = () => {
-          if (req.result) {
-            resolve(req.result);
-          } else {
-            const allReq = store.getAll();
-            allReq.onsuccess = () => {
-              const match = (allReq.result || []).find(
-                (t) => t.ticket_code === ticketCode || t.id === ticketCode
-              );
-              resolve(match || null);
-            };
-            allReq.onerror = () => resolve(null);
+    if (match) return match;
+
+    // Check localStorage tickets cache (ticketcraft_mock_tickets)
+    try {
+      const storage = typeof window !== 'undefined' ? window.localStorage : null;
+      if (storage) {
+        const raw = storage.getItem('ticketcraft_mock_tickets');
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const found = list.find((t) => t.ticket_code === ticketCode || t.id === ticketCode);
+            if (found) {
+              // Cache in memory and IndexedDB for future fast lookups
+              memoryCache.tickets.set(found.ticket_code, found);
+              await this.updateCachedTicket(found);
+              return found;
+            }
           }
-        };
-        req.onerror = () => resolve(null);
-      } catch {
-        resolve(null);
+        }
       }
-    });
+    } catch (cacheErr) {
+      console.debug('Failed to inspect localStorage ticket cache:', cacheErr);
+    }
+
+    return null;
   },
 
   /**
    * Updates cached ticket status locally
    */
   async updateCachedTicket(ticket) {
+    if (!ticket) return;
+
+    memoryCache.tickets.set(ticket.ticket_code, ticket);
+
     const db = await openDB();
-    if (!db) {
-      memoryCache.tickets.set(ticket.ticket_code, ticket);
-      return;
+    if (db) {
+      await new Promise((resolve) => {
+        try {
+          const tx = db.transaction('cached_tickets', 'readwrite');
+          const store = tx.objectStore('cached_tickets');
+          store.put(ticket);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => resolve();
+        } catch {
+          resolve();
+        }
+      });
     }
 
-    return new Promise((resolve) => {
-      try {
-        const tx = db.transaction('cached_tickets', 'readwrite');
-        const store = tx.objectStore('cached_tickets');
-        store.put(ticket);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => resolve();
-      } catch {
-        resolve();
+    // Also sync update to localStorage ticketcraft_mock_tickets
+    try {
+      const storage = typeof window !== 'undefined' ? window.localStorage : null;
+      if (storage) {
+        const raw = storage.getItem('ticketcraft_mock_tickets');
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const idx = list.findIndex(
+              (t) => t.ticket_code === ticket.ticket_code || t.id === ticket.id
+            );
+            if (idx >= 0) {
+              list[idx] = { ...list[idx], ...ticket };
+            } else {
+              list.push(ticket);
+            }
+            storage.setItem('ticketcraft_mock_tickets', JSON.stringify(list));
+          }
+        }
       }
-    });
+    } catch (e) {
+      console.debug('Failed to sync updated ticket to localStorage:', e);
+    }
   },
 
   /**

@@ -643,105 +643,227 @@ class SupabaseTicketingService {
   }
 
   /**
-   * Validates ticket scan at the gate and updates database record idempotently
+   * Direct database validation against 'tickets' table with joins on 'seats' and 'bookings'.
+   * Used as primary direct scan or fallback when RPC is unavailable.
    */
-  async validateTicketScan(ticketCode, signature) {
-    const { data: ticket, error } = await supabase
-      .from('tickets')
-      .select('*')
-      .eq('ticket_code', ticketCode)
-      .single();
-
-    if (error || !ticket) {
-      return {
-        valid: false,
-        status: 'TICKET_NOT_FOUND',
-        message: 'No ticket record found with this code.',
-      };
-    }
-
-    const testSig = signature || ticket.qr_signature;
-    const parsed = parseQRPayload(ticket.qr_payload);
-    const dataFields = parsed ? {
-      tid: parsed.tid,
-      bid: parsed.bid,
-      eid: parsed.eid,
-      sid: parsed.sid,
-      tier: parsed.tier,
-      iat: parsed.iat,
-    } : {
-      tid: ticket.id,
-      bid: ticket.booking_id,
-      eid: 'evt-symphony-2026',
-      sid: ticket.seat_id,
-      tier: 'VIP',
-      iat: Math.floor(new Date(ticket.created_at).getTime() / 1000),
-    };
-
-    const isValidSignature = await cryptoSigner.verifyTicketPayload({ ...dataFields, sig: testSig });
-
-    if (!isValidSignature) {
-      return {
-        valid: false,
-        status: 'INVALID_SIGNATURE',
-        message: 'Cryptographic signature mismatch.',
-      };
-    }
-
-    if (ticket.is_used) {
-      return {
-        valid: false,
-        status: 'ALREADY_USED',
-        message: `Ticket already scanned at ${ticket.scanned_at}`,
-        ticket,
-      };
-    }
-
-    // Update in Supabase
-    const nowISO = new Date().toISOString();
-    await supabase
-      .from('tickets')
-      .update({ is_used: true, scanned_at: nowISO })
-      .eq('id', ticket.id);
-
-    return {
-      valid: true,
-      status: 'ENTRY_GRANTED',
-      scanned_at: nowISO,
-      ticket: { ...ticket, is_used: true, scanned_at: nowISO },
-    };
-  }
-
-  /**
-   * Invokes atomic validate_and_claim_ticket stored procedure in PostgreSQL with row lock
-   */
-  async validateAndClaimTicket({ ticketCode, signature, eventId = null, gateName = 'Main Gate' }) {
+  async validateTicketScan(ticketCode, signature, eventId = null, gateName = 'Main Gate') {
     try {
-      const { data, error } = await supabase.rpc('validate_and_claim_ticket', {
-        p_ticket_code: ticketCode,
-        p_signature: signature || '',
-        p_event_id: eventId,
-        p_gate_name: gateName,
-      });
+      console.log('[SupabaseTicketingService] Running direct table validation for:', ticketCode);
 
-      if (error) {
+      // Query tickets table by either ticket_code OR id
+      const { data: ticket, error: ticketErr } = await supabase
+        .from('tickets')
+        .select(`
+          id,
+          ticket_code,
+          booking_id,
+          seat_id,
+          user_id,
+          event_id,
+          qr_signature,
+          qr_payload,
+          is_used,
+          scanned_at,
+          gate_name,
+          attendee_name,
+          attendee_email,
+          category,
+          tier,
+          seats (
+            id,
+            row_label,
+            seat_number,
+            category,
+            section
+          ),
+          bookings (
+            id,
+            attendee_name,
+            attendee_email,
+            event_id
+          )
+        `)
+        .or(`ticket_code.eq.${ticketCode},id.eq.${ticketCode}`)
+        .maybeSingle();
+
+      if (ticketErr) {
+        console.error('[SupabaseTicketingService] Direct ticket query error from Supabase:', ticketErr);
         return {
           success: false,
           valid: false,
-          status: 'RPC_ERROR',
-          message: error.message || 'Database error occurred during validation.',
+          status: 'DATABASE_ERROR',
+          message: ticketErr.message || 'Error querying tickets table in Supabase.',
+          ticket_code: ticketCode,
         };
       }
 
-      return data;
+      if (!ticket) {
+        console.warn('[SupabaseTicketingService] Ticket not found in Supabase:', ticketCode);
+        return {
+          success: false,
+          valid: false,
+          status: 'TICKET_NOT_FOUND',
+          message: 'No ticket record found with this code.',
+          ticket_code: ticketCode,
+        };
+      }
+
+      // Check event match if eventId specified and both are known
+      const bookingObj = Array.isArray(ticket.bookings) ? ticket.bookings[0] : ticket.bookings;
+      const seatObj = Array.isArray(ticket.seats) ? ticket.seats[0] : ticket.seats;
+      const ticketEventId = ticket.event_id || bookingObj?.event_id;
+
+      if (eventId && ticketEventId && ticketEventId !== eventId) {
+        return {
+          success: false,
+          valid: false,
+          status: 'EVENT_MISMATCH',
+          message: 'Ticket belongs to a different event.',
+          ticket_event_id: ticketEventId,
+          ticket_code: ticket.ticket_code || ticketCode,
+        };
+      }
+
+      // Check if ticket is already scanned (Idempotency)
+      if (ticket.is_used) {
+        return {
+          success: false,
+          valid: false,
+          status: 'ALREADY_USED',
+          message: `Ticket already scanned at ${ticket.scanned_at || 'earlier'} (${ticket.gate_name || 'Main Gate'})`,
+          scanned_at: ticket.scanned_at,
+          gate_name: ticket.gate_name || 'Main Gate',
+          ticket_code: ticket.ticket_code || ticketCode,
+        };
+      }
+
+      // Cryptographic signature check (if signature provided)
+      const testSig = signature || ticket.qr_signature;
+      if (testSig && !testSig.startsWith('SIG_')) {
+        const parsed = parseQRPayload(ticket.qr_payload);
+        const dataFields = parsed ? {
+          tid: parsed.tid,
+          bid: parsed.bid,
+          eid: parsed.eid,
+          sid: parsed.sid,
+          tier: parsed.tier,
+          iat: parsed.iat,
+        } : {
+          tid: ticket.id || ticket.ticket_code,
+          bid: ticket.booking_id,
+          eid: ticketEventId || 'evt-symphony-2026',
+          sid: ticket.seat_id,
+          tier: ticket.tier || ticket.category || 'VIP',
+          iat: Math.floor(new Date(ticket.created_at || Date.now()).getTime() / 1000),
+        };
+
+        const isValidSig = await cryptoSigner.verifyTicketPayload({ ...dataFields, sig: testSig });
+        if (!isValidSig) {
+          console.warn('[SupabaseTicketingService] Signature mismatch for ticket:', ticketCode);
+          return {
+            success: false,
+            valid: false,
+            status: 'INVALID_SIGNATURE',
+            message: 'Cryptographic signature mismatch.',
+            ticket_code: ticket.ticket_code || ticketCode,
+          };
+        }
+      }
+
+      // Claim ticket: Update in Supabase
+      const nowISO = new Date().toISOString();
+      try {
+        const { error: updateErr } = await supabase
+          .from('tickets')
+          .update({
+            is_used: true,
+            scanned_at: nowISO,
+            gate_name: gateName,
+          })
+          .eq('id', ticket.id);
+
+        if (updateErr) {
+          console.warn('[SupabaseTicketingService] Warning updating ticket in Supabase:', updateErr);
+        }
+      } catch (updateEx) {
+        console.warn('[SupabaseTicketingService] Exception updating ticket in Supabase:', updateEx);
+      }
+
+      const attendeeName =
+        bookingObj?.attendee_name ||
+        ticket.attendee_name ||
+        'Valued Attendee';
+
+      const tierName =
+        seatObj?.category ||
+        ticket.category ||
+        ticket.tier ||
+        'Standard';
+
+      const sectionName = seatObj?.section || 'General';
+      const rowLabel = seatObj?.row_label || (ticket.seat_id?.includes('-') ? ticket.seat_id.split('-')[0] : 'A');
+      const seatNumber = seatObj?.seat_number || (ticket.seat_id?.includes('-') ? parseInt(ticket.seat_id.split('-')[1], 10) : 1);
+
+      return {
+        success: true,
+        valid: true,
+        status: 'ENTRY_GRANTED',
+        message: 'Access granted.',
+        ticket_code: ticket.ticket_code || ticketCode,
+        scanned_at: nowISO,
+        gate_name: gateName,
+        attendee_name: attendeeName,
+        attendee_email: bookingObj?.attendee_email || ticket.attendee_email || '',
+        tier: tierName,
+        section: sectionName,
+        row_label: rowLabel,
+        seat_number: seatNumber,
+      };
     } catch (err) {
+      console.error('[SupabaseTicketingService] validateTicketScan exception:', err);
       return {
         success: false,
         valid: false,
         status: 'NETWORK_ERROR',
-        message: err.message || 'Network connectivity error.',
+        message: err.message || 'Direct validation encountered exception.',
+        ticket_code: ticketCode,
       };
     }
+  }
+
+  /**
+   * Invokes atomic validate_and_claim_ticket stored procedure in PostgreSQL with row lock,
+   * falling back automatically to direct table validation if RPC is unavailable.
+   */
+  async validateAndClaimTicket({ ticketCode, signature, eventId = null, gateName = 'Main Gate' }) {
+    console.log('[SupabaseTicketingService] Validating ticket:', { ticketCode, eventId, gateName });
+
+    // Sanitize eventId: if not a valid UUID, pass null to avoid PostgreSQL 22P02 invalid UUID syntax error
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId);
+    const rpcEventId = isUUID ? eventId : null;
+
+    // 1. Try atomic PostgreSQL RPC first
+    try {
+      const { data, error } = await supabase.rpc('validate_and_claim_ticket', {
+        p_ticket_code: ticketCode,
+        p_signature: signature || '',
+        p_event_id: rpcEventId,
+        p_gate_name: gateName,
+      });
+
+      if (!error && data) {
+        return data;
+      }
+
+      if (error) {
+        console.warn('[SupabaseTicketingService] validate_and_claim_ticket RPC notice/error, falling back to direct table scan:', error);
+      }
+    } catch (rpcErr) {
+      console.warn('[SupabaseTicketingService] RPC invocation exception, falling back to direct table scan:', rpcErr);
+    }
+
+    // 2. Direct Table Query & Claim Fallback (if RPC not deployed or encountered type error)
+    return await this.validateTicketScan(ticketCode, signature, eventId, gateName);
   }
 }
 

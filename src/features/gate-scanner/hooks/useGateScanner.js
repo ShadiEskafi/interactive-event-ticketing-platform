@@ -66,15 +66,19 @@ export function useGateScanner(initialEventId = 'evt-symphony-2026') {
         }));
 
         // Fire audio and haptic feedback
-        notifyFeedback(result.status);
+        if (result?.status) {
+          notifyFeedback(result.status);
+        }
 
         return result;
       } catch (err) {
+        console.error('[GateScanner] Ticket validation unhandled exception:', err);
         const fallbackResult = {
           success: false,
           valid: false,
           status: 'ERROR',
           message: err.message || 'Validation error occurred.',
+          ticket_code: rawCode,
         };
         setLastResult(fallbackResult);
         notifyFeedback('ERROR');

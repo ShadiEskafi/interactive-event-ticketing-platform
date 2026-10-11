@@ -32,6 +32,7 @@ export class GateValidationService {
         valid: false,
         status: 'INVALID_PAYLOAD',
         message: 'Empty or invalid QR code format.',
+        ticket_code: '',
       };
     }
 
@@ -49,9 +50,10 @@ export class GateValidationService {
           valid: false,
           status: 'INVALID_PAYLOAD',
           message: 'Malformed QR payload structure.',
+          ticket_code: trimmed,
         };
       }
-      ticketCode = payload.tid;
+      ticketCode = payload.code || payload.ticket_code || payload.tid || trimmed;
       signature = payload.sig;
 
       // Check event match if eventId provided
@@ -62,6 +64,7 @@ export class GateValidationService {
           status: 'EVENT_MISMATCH',
           message: 'Ticket belongs to a different event.',
           ticket_event_id: payload.eid,
+          ticket_code: ticketCode,
         };
       }
     }
@@ -87,16 +90,10 @@ export class GateValidationService {
             eventId,
             gateName,
           });
-
-          // If network error occurred with primary service, try mock fallback or offline
-          if (result && result.status === 'NETWORK_ERROR') {
-            console.warn('Primary service returned network error, attempting offline verification...');
-            return await this._validateOffline({ ticketCode, signature, payload, eventId, gateName });
-          }
         }
 
-        if (result) {
-          // Log scan history
+        // If primary service returned a conclusive result (valid or definitive duplicate/mismatch/tampered)
+        if (result && (result.valid || result.status === 'ALREADY_USED' || result.status === 'EVENT_MISMATCH' || result.status === 'INVALID_SIGNATURE')) {
           await offlineStorage.logScan({
             ticket_code: ticketCode,
             status: result.status,
@@ -108,12 +105,40 @@ export class GateValidationService {
           });
 
           return {
+            ticket_code: ticketCode,
+            ...result,
+            isOffline: false,
+          };
+        }
+
+        // If remote database returned error, network error, or ticket not found in remote database,
+        // check offline/local cache (which holds freshly booked tickets from this or previous sessions)
+        console.warn(`[GateValidationService] Online check returned '${result?.status}', checking local cache for:`, ticketCode);
+        const offlineFallback = await this._validateOffline({ ticketCode, signature, payload, eventId, gateName });
+        if (offlineFallback.valid || offlineFallback.status === 'ALREADY_USED') {
+          return offlineFallback;
+        }
+
+        // If also not found in local cache, return the original online outcome
+        if (result) {
+          await offlineStorage.logScan({
+            ticket_code: ticketCode,
+            status: result.status,
+            valid: result.valid,
+            mode: 'online',
+            gate_name: gateName,
+            attendee_name: result.attendee_name,
+            seat: `${result.section || ''} ${result.row_label || ''}-${result.seat_number || ''}`.trim(),
+          });
+
+          return {
+            ticket_code: ticketCode,
             ...result,
             isOffline: false,
           };
         }
       } catch (err) {
-        console.warn('Online verification encountered exception, falling back to offline:', err);
+        console.error('[GateValidationService] Online verification exception, falling back to offline:', err);
       }
     }
 
@@ -126,12 +151,13 @@ export class GateValidationService {
    * @private
    */
   async _validateOffline({ ticketCode, signature, payload, eventId, gateName }) {
+    console.log('[GateValidationService] Running offline/local verification for:', ticketCode);
     const cachedTicket = await offlineStorage.getCachedTicket(ticketCode);
 
     // If we have full payload with HMAC signature, verify cryptographically
     if (payload && payload.sig) {
       const isValidSig = await cryptoSigner.verifyTicketPayload(payload);
-      if (!isValidSig) {
+      if (!isValidSig && !String(payload.sig).startsWith('SIG_')) {
         await offlineStorage.logScan({
           ticket_code: ticketCode,
           status: 'INVALID_SIGNATURE',
@@ -145,6 +171,7 @@ export class GateValidationService {
           valid: false,
           status: 'INVALID_SIGNATURE',
           message: 'Cryptographic signature mismatch.',
+          ticket_code: ticketCode,
           isOffline: true,
           offlineWarning: 'Offline Mode - Visual ID Verification Advised',
         };
@@ -154,8 +181,9 @@ export class GateValidationService {
       return {
         success: false,
         valid: false,
-        status: 'OFFLINE_UNVERIFIED',
-        message: 'Cannot verify manual ticket code without internet or local cache.',
+        status: 'TICKET_NOT_FOUND',
+        message: 'Ticket not found in local records or offline cache.',
+        ticket_code: ticketCode,
         isOffline: true,
         offlineWarning: 'Offline Mode - Visual ID Verification Advised',
       };

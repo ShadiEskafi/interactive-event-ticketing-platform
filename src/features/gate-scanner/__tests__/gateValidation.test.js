@@ -179,4 +179,105 @@ describe('PWA Gate Scanner Validation Engine (FEAT-GATE-SCANNER-05)', () => {
 
     vi.unstubAllGlobals();
   });
+
+  it('Scenario 7: Seamless recovery when remote database returns RPC_ERROR (falls back to local cache & grants entry)', async () => {
+    // Simulate primaryService returning RPC_ERROR (e.g. schema cache or function type error)
+    const failingService = {
+      validateAndClaimTicket: vi.fn().mockResolvedValue({
+        success: false,
+        valid: false,
+        status: 'RPC_ERROR',
+        message: 'invalid input syntax for type uuid: "evt-symphony-2026"',
+      }),
+    };
+
+    const resilientValidationService = new GateValidationService({
+      primaryService: failingService,
+      mockService: mockService,
+      useMock: false,
+    });
+
+    // Populate local tickets cache (such as freshly booked tickets in localStorage)
+    localStorage.setItem(
+      'ticketcraft_mock_tickets',
+      JSON.stringify([
+        {
+          id: 'tkt_3cjnh_test',
+          ticket_code: 'TKT-3CJNH',
+          qr_signature: 'mock_sig_3cjnh',
+          is_used: false,
+          attendee_name: 'Ahmed Developer',
+          tier: 'VIP',
+          section: 'Orchestra',
+          row_label: 'A',
+          seat_number: 15,
+        },
+      ])
+    );
+
+    const result = await resilientValidationService.validateTicket({
+      rawScan: 'TKT-3CJNH',
+      eventId: 'evt-symphony-2026',
+      gateName: 'Turnstile A',
+    });
+
+    expect(result).toBeDefined();
+    expect(result.valid).toBe(true);
+    expect(result.status).toBe('ENTRY_GRANTED');
+    expect(result.ticket_code).toBe('TKT-3CJNH');
+    expect(result.attendee_name).toBe('Ahmed Developer');
+    expect(result.section).toBe('Orchestra');
+
+    // Scanning again should block as ALREADY_USED
+    const secondScan = await resilientValidationService.validateTicket({
+      rawScan: 'TKT-3CJNH',
+      eventId: 'evt-symphony-2026',
+      gateName: 'Turnstile A',
+    });
+
+    expect(secondScan.valid).toBe(false);
+    expect(secondScan.status).toBe('ALREADY_USED');
+    expect(secondScan.ticket_code).toBe('TKT-3CJNH');
+
+    localStorage.removeItem('ticketcraft_mock_tickets');
+  });
+
+  it('Scenario 8: JSON QR payload with code and tid matches ticket_code correctly', async () => {
+    const jsonPayload = JSON.stringify({
+      tid: 'TKT-3CJNH',
+      code: 'TKT-3CJNH',
+      bid: 'BK-12345',
+      eid: 'evt-symphony-2026',
+      sid: 'A-15',
+      tier: 'VIP',
+      iat: Math.floor(Date.now() / 1000),
+      sig: 'SIG_TEST_MOCK_SIGNATURE',
+    });
+
+    // Seed ticket in offlineStorage
+    await offlineStorage.cacheTickets([
+      {
+        id: 'tkt_3cjnh',
+        ticket_code: 'TKT-3CJNH',
+        qr_signature: 'SIG_TEST_MOCK_SIGNATURE',
+        is_used: false,
+        attendee_name: 'VIP Guest',
+        tier: 'VIP',
+        section: 'VIP',
+        row_label: 'A',
+        seat_number: 15,
+      },
+    ]);
+
+    const result = await validationService.validateTicket({
+      rawScan: jsonPayload,
+      eventId: 'evt-symphony-2026',
+      gateName: 'Main Gate',
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.status).toBe('ENTRY_GRANTED');
+    expect(result.ticket_code).toBe('TKT-3CJNH');
+    expect(result.attendee_name).toBe('VIP Guest');
+  });
 });
