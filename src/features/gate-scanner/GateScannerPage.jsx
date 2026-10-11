@@ -5,6 +5,7 @@ import { GateStatsBar } from './components/GateStatsBar';
 import { ManualEntryModal } from './components/ManualEntryModal';
 import { GateSelectorModal } from './components/GateSelectorModal';
 import { useGateScanner } from './hooks/useGateScanner';
+import { getAutoDismissDelay } from './scanResultThemes';
 import { useLanguage } from '../../context';
 import './GateScanner.css';
 
@@ -107,7 +108,7 @@ export function GateScannerPage({
         <ScanResultOverlay
           result={lastResult}
           onClose={dismissResult}
-          autoDismissDelay={1800}
+          autoDismissDelay={getAutoDismissDelay(lastResult.status)}
         />
       )}
 

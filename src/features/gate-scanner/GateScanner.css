@@ -456,46 +456,123 @@
   background: #1d4ed8;
 }
 
-/* 6. Scan Result Overlay */
+/* 6. Scan Result Overlay — Theme-Driven Status System */
+
+/* ─── Base Overlay ─── */
 .scan-result-overlay {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 50;
   padding: 1rem;
   padding-bottom: env(safe-area-inset-bottom, 1rem);
   box-sizing: border-box;
-  animation: fadeIn 0.15s ease-out;
 }
 
-@keyframes fadeIn {
+/* ─── Per-Status Overlay Backgrounds ─── */
+.scan-result-overlay.result-success {
+  background: rgba(6, 78, 59, 0.90);
+}
+
+.scan-result-overlay.result-duplicate {
+  background: rgba(120, 53, 15, 0.90);
+}
+
+.scan-result-overlay.result-security {
+  background: rgba(127, 29, 29, 0.92);
+}
+
+.scan-result-overlay.result-mismatch {
+  background: rgba(113, 63, 18, 0.88);
+}
+
+.scan-result-overlay.result-notfound {
+  background: rgba(100, 30, 30, 0.88);
+}
+
+.scan-result-overlay.result-error {
+  background: rgba(30, 41, 59, 0.90);
+}
+
+/* ─── Entry Animations ─── */
+.anim-success-glow {
+  animation: successEntry 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.anim-warning-shake {
+  animation: warningEntry 0.5s ease-out;
+}
+
+.anim-danger-flash {
+  animation: dangerEntry 0.5s ease-out;
+}
+
+.anim-slide-in {
+  animation: slideInUp 0.35s ease-out;
+}
+
+.anim-fade-in {
+  animation: fadeInGentle 0.3s ease-out;
+}
+
+@keyframes successEntry {
+  0% { opacity: 0; transform: scale(0.85); }
+  60% { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes warningEntry {
+  0% { opacity: 0; transform: translateX(-12px); }
+  20% { opacity: 1; transform: translateX(10px); }
+  40% { transform: translateX(-7px); }
+  60% { transform: translateX(4px); }
+  80% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes dangerEntry {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  25% { opacity: 0.4; }
+  40% { opacity: 1; }
+  55% { opacity: 0.6; }
+  70% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInGentle {
   from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
 }
 
-.scan-result-overlay.result-success {
-  background: rgba(6, 78, 59, 0.88);
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .anim-success-glow,
+  .anim-warning-shake,
+  .anim-danger-flash,
+  .anim-slide-in,
+  .anim-fade-in {
+    animation: fadeInGentle 0.2s ease-out !important;
+  }
 }
 
-.scan-result-overlay.result-duplicate {
-  background: rgba(120, 53, 15, 0.88);
-}
-
-.scan-result-overlay.result-invalid {
-  background: rgba(127, 29, 29, 0.88);
-}
-
+/* ─── Result Card ─── */
 .scan-result-card {
   width: 100%;
   max-width: min(92vw, 440px);
   max-height: 85vh;
   background: #0f172a;
   border-radius: 16px;
-  border: 2px solid;
+  border: 2.5px solid;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -504,36 +581,63 @@
   box-sizing: border-box;
 }
 
+/* Per-status card borders */
 .result-success .scan-result-card {
   border-color: #10b981;
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.25), 0 25px 50px -12px rgba(0, 0, 0, 0.75);
 }
 
 .result-duplicate .scan-result-card {
   border-color: #f59e0b;
+  box-shadow: 0 0 25px rgba(245, 158, 11, 0.2), 0 25px 50px -12px rgba(0, 0, 0, 0.75);
 }
 
-.result-invalid .scan-result-card {
+.result-security .scan-result-card {
   border-color: #ef4444;
+  box-shadow: 0 0 35px rgba(239, 68, 68, 0.3), 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+  animation: cardDangerPulse 1.5s ease-in-out infinite;
 }
 
+.result-mismatch .scan-result-card {
+  border-color: #eab308;
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.15), 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+}
+
+.result-notfound .scan-result-card {
+  border-color: #f87171;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+}
+
+.result-error .scan-result-card {
+  border-color: #64748b;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+}
+
+@keyframes cardDangerPulse {
+  0%, 100% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.2), 0 25px 50px -12px rgba(0, 0, 0, 0.75); }
+  50% { box-shadow: 0 0 50px rgba(239, 68, 68, 0.45), 0 25px 50px -12px rgba(0, 0, 0, 0.75); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result-security .scan-result-card {
+    animation: none !important;
+  }
+}
+
+/* ─── Progress Bar — Themed ─── */
 .auto-dismiss-progress-bar {
   height: 4px;
-  background: #38bdf8;
   transition: width 0.04s linear;
 }
 
-.result-success .auto-dismiss-progress-bar {
-  background: #34d399;
-}
+.auto-dismiss-progress-bar.progress-success  { background: #34d399; }
+.auto-dismiss-progress-bar.progress-duplicate { background: #fbbf24; }
+.auto-dismiss-progress-bar.progress-security  { background: #f87171; height: 5px; }
+.auto-dismiss-progress-bar.progress-mismatch  { background: #facc15; }
+.auto-dismiss-progress-bar.progress-notfound  { background: #fb923c; }
+.auto-dismiss-progress-bar.progress-error     { background: #94a3b8; }
 
-.result-duplicate .auto-dismiss-progress-bar {
-  background: #fbbf24;
-}
-
-.result-invalid .auto-dismiss-progress-bar {
-  background: #f87171;
-}
-
+/* ─── Offline Badge Pill ─── */
 .offline-badge-pill {
   display: inline-flex;
   align-items: center;
@@ -546,17 +650,78 @@
   border-bottom-right-radius: 8px;
 }
 
+/* ─── Result Header ─── */
 .result-header {
   padding: 20px 24px 12px;
   text-align: center;
 }
 
-.result-status-icon {
-  font-size: 3.5rem;
-  line-height: 1;
-  margin-bottom: 8px;
+/* Status Icon — Circular background wrapper */
+.result-status-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  margin: 0 auto 12px;
+  animation: iconPulse 2s ease-in-out infinite;
 }
 
+.result-status-icon-wrapper .result-status-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+/* Icon background per status */
+.icon-bg-success {
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.08) 100%);
+  border: 2px solid rgba(52, 211, 153, 0.4);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+.icon-bg-duplicate {
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, rgba(245, 158, 11, 0.08) 100%);
+  border: 2px solid rgba(251, 191, 36, 0.4);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.25);
+}
+
+.icon-bg-security {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.35) 0%, rgba(239, 68, 68, 0.1) 100%);
+  border: 2px solid rgba(248, 113, 113, 0.5);
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.35);
+}
+
+.icon-bg-mismatch {
+  background: radial-gradient(circle, rgba(234, 179, 8, 0.3) 0%, rgba(234, 179, 8, 0.08) 100%);
+  border: 2px solid rgba(250, 204, 21, 0.4);
+  box-shadow: 0 0 18px rgba(234, 179, 8, 0.2);
+}
+
+.icon-bg-notfound {
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.25) 0%, rgba(249, 115, 22, 0.06) 100%);
+  border: 2px solid rgba(251, 146, 60, 0.35);
+  box-shadow: 0 0 15px rgba(249, 115, 22, 0.2);
+}
+
+.icon-bg-error {
+  background: radial-gradient(circle, rgba(100, 116, 139, 0.25) 0%, rgba(100, 116, 139, 0.06) 100%);
+  border: 2px solid rgba(148, 163, 184, 0.3);
+  box-shadow: 0 0 12px rgba(100, 116, 139, 0.15);
+}
+
+@keyframes iconPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result-status-icon-wrapper {
+    animation: none !important;
+  }
+}
+
+/* ─── Result Title — Per-Status Color ─── */
 .result-title {
   font-size: 1.6rem;
   font-weight: 800;
@@ -564,17 +729,12 @@
   letter-spacing: 0.03em;
 }
 
-.result-success .result-title {
-  color: #34d399;
-}
-
-.result-duplicate .result-title {
-  color: #fbbf24;
-}
-
-.result-invalid .result-title {
-  color: #f87171;
-}
+.result-success .result-title  { color: #34d399; }
+.result-duplicate .result-title { color: #fbbf24; }
+.result-security .result-title  { color: #f87171; }
+.result-mismatch .result-title  { color: #facc15; }
+.result-notfound .result-title  { color: #fb923c; }
+.result-error .result-title     { color: #94a3b8; }
 
 .result-subtitle {
   color: #cbd5e1;
@@ -582,6 +742,7 @@
   margin: 6px 0 0;
 }
 
+/* ─── Details Body ─── */
 .result-details-body {
   padding: 12px 24px 16px;
   overflow-y: auto;
@@ -647,20 +808,166 @@
   font-size: 0.75rem !important;
 }
 
-.duplicate-alert-box,
-.invalid-alert-box {
-  background: rgba(0, 0, 0, 0.35);
-  padding: 12px;
-  border-radius: 8px;
+/* ─── Contextual Alert Boxes ─── */
+
+/* Duplicate / Warning */
+.duplicate-alert-box {
+  background: rgba(120, 53, 15, 0.35);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 14px;
+  border-radius: 10px;
   margin-top: 8px;
+}
+
+.duplicate-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.duplicate-alert-icon {
+  font-size: 1.1rem;
+}
+
+.duplicate-alert-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Security / Danger */
+.security-alert-box {
+  background: rgba(127, 29, 29, 0.4);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  padding: 14px;
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.security-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.security-alert-icon {
+  font-size: 1.1rem;
+}
+
+.security-alert-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f87171;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .security-notice {
   color: #fca5a5;
   font-size: 0.85rem;
-  margin: 0 0 8px;
+  margin: 0 0 10px;
+  line-height: 1.5;
 }
 
+/* Mismatch */
+.mismatch-alert-box {
+  background: rgba(113, 63, 18, 0.3);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  padding: 14px;
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.mismatch-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(234, 179, 8, 0.2);
+}
+
+.mismatch-alert-icon {
+  font-size: 1.1rem;
+}
+
+.mismatch-alert-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #facc15;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mismatch-notice {
+  color: #fef08a;
+  font-size: 0.85rem;
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+/* Not Found */
+.notfound-alert-box {
+  background: rgba(154, 52, 18, 0.25);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  padding: 14px;
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.notfound-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(249, 115, 22, 0.2);
+}
+
+.notfound-alert-icon {
+  font-size: 1.1rem;
+}
+
+.notfound-alert-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fb923c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.notfound-notice {
+  color: #fed7aa;
+  font-size: 0.85rem;
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+/* Generic Error */
+.generic-alert-box {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  padding: 14px;
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.generic-notice {
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  margin: 0 0 8px;
+  line-height: 1.5;
+}
+
+/* ─── Footer & Themed Action Buttons ─── */
 .result-footer {
   padding: 12px 24px calc(14px + env(safe-area-inset-bottom, 0px));
   position: sticky;
@@ -672,9 +979,8 @@
 
 .btn-next-scan {
   width: 100%;
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #f8fafc;
+  border: 1px solid;
+  color: #fff;
   padding: 12px;
   min-height: 48px;
   border-radius: 10px;
@@ -685,9 +991,71 @@
   transition: all 0.2s;
 }
 
-.btn-next-scan:hover,
-.btn-next-scan:active {
-  background: #334155;
+/* Per-status button themes */
+.btn-next-scan.btn-next-success {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #34d399;
+}
+
+.btn-next-scan.btn-next-success:hover,
+.btn-next-scan.btn-next-success:active {
+  background: rgba(16, 185, 129, 0.35);
+}
+
+.btn-next-scan.btn-next-duplicate {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+
+.btn-next-scan.btn-next-duplicate:hover,
+.btn-next-scan.btn-next-duplicate:active {
+  background: rgba(245, 158, 11, 0.35);
+}
+
+.btn-next-scan.btn-next-security {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+.btn-next-scan.btn-next-security:hover,
+.btn-next-scan.btn-next-security:active {
+  background: rgba(239, 68, 68, 0.35);
+}
+
+.btn-next-scan.btn-next-mismatch {
+  background: rgba(234, 179, 8, 0.15);
+  border-color: #eab308;
+  color: #facc15;
+}
+
+.btn-next-scan.btn-next-mismatch:hover,
+.btn-next-scan.btn-next-mismatch:active {
+  background: rgba(234, 179, 8, 0.3);
+}
+
+.btn-next-scan.btn-next-notfound {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: #f97316;
+  color: #fb923c;
+}
+
+.btn-next-scan.btn-next-notfound:hover,
+.btn-next-scan.btn-next-notfound:active {
+  background: rgba(249, 115, 22, 0.3);
+}
+
+.btn-next-scan.btn-next-error {
+  background: rgba(100, 116, 139, 0.15);
+  border-color: #64748b;
+  color: #94a3b8;
+}
+
+.btn-next-scan.btn-next-error:hover,
+.btn-next-scan.btn-next-error:active {
+  background: rgba(100, 116, 139, 0.3);
 }
 
 /* 7. Modals: Manual Entry & Gate Selector */
