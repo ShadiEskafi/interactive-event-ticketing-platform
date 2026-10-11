@@ -4,6 +4,7 @@ import { SeatTooltip } from './components/SeatTooltip';
 import { Stage } from './components/Stage';
 import { SectionLegend } from './components/SectionLegend';
 import { usePanZoom } from './hooks/usePanZoom';
+import { useLanguage } from '../../context';
 
 const ROW_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'];
 
@@ -13,6 +14,7 @@ export function SeatMap({
   selectedSeats = [],
   onSeatSelect,
 }) {
+  const { t } = useLanguage();
   const containerRef = useRef(null);
   const [focusedSeatId, setFocusedSeatId] = useState(null);
   const [tooltipState, setTooltipState] = useState({
@@ -154,13 +156,13 @@ export function SeatMap({
       onPointerUp={onPointerUp}
     >
       {/* Pan & Zoom Floating Toolbar */}
-      <div className="map-controls" role="toolbar" aria-label="Map Zoom and Navigation Controls">
+      <div className="map-controls" role="toolbar" aria-label={t('seatmap.reset_view', 'أدوات التحكم في تكبير وتحريك الخريطة')}>
         <button
           type="button"
           className="btn-map-control"
           onClick={zoomIn}
-          aria-label="Zoom in"
-          title="Zoom in"
+          aria-label={t('seatmap.zoom_in', 'تكبير')}
+          title={t('seatmap.zoom_in', 'تكبير')}
         >
           +
         </button>
@@ -168,8 +170,8 @@ export function SeatMap({
           type="button"
           className="btn-map-control"
           onClick={zoomOut}
-          aria-label="Zoom out"
-          title="Zoom out"
+          aria-label={t('seatmap.zoom_out', 'تصغير')}
+          title={t('seatmap.zoom_out', 'تصغير')}
         >
           &minus;
         </button>
@@ -177,12 +179,12 @@ export function SeatMap({
           type="button"
           className="btn-map-control btn-reset"
           onClick={resetTransform}
-          aria-label="Reset view"
-          title="Reset view"
+          aria-label={t('seatmap.reset_view', 'إعادة ضبط العرض')}
+          title={t('seatmap.reset_view', 'إعادة ضبط العرض')}
         >
-          Reset
+          {t('seatmap.reset_view', 'إعادة ضبط')}
         </button>
-        <span className="scale-indicator">{Math.round(transform.scale * 100)}%</span>
+        <span className="scale-indicator" dir="ltr">{Math.round(transform.scale * 100)}%</span>
       </div>
 
       {/* SVG Seating Viewport */}

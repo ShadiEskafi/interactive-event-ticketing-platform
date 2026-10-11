@@ -24,7 +24,7 @@
   color: var(--scanner-text);
   overflow: hidden;
   z-index: 9999;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: inherit;
   padding-top: env(safe-area-inset-top, 0);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }

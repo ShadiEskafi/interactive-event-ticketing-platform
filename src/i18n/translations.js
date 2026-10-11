@@ -1,9 +1,228 @@
 /**
- * TicketCraft Bilingual Localization Dictionary (English & Arabic)
- * Covers all platform layers: Navbar, Hero, Events, Seatmap, Hold, Checkout, Auth, Tickets, Footer.
+ * TicketCraft Bilingual Localization Dictionary (Arabic & English)
+ * Arabic is default, English is secondary.
+ * Covers all platform layers: Navbar, Hero, Events, Seatmap, Hold, Checkout, Auth, Tickets, Scanner, Footer.
  */
 
 export const translations = {
+  ar: {
+    navbar: {
+      brand_name: 'تيكت كرافت',
+      tagline: 'حجز تذاكر تفاعلي فوري',
+      home: 'الرئيسية',
+      featured_events: 'الفعاليات المميزة',
+      my_tickets: 'تذاكري',
+      scanner: 'ماسح البوابات',
+      guest: 'زائر',
+      sign_in: 'تسجيل الدخول',
+      sign_out: 'تسجيل الخروج',
+      lang_toggle: 'English',
+      lang_aria: 'التبديل إلى الإنجليزية',
+      open_menu: 'فتح القائمة الرئيسية',
+      close_menu: 'إغلاق القائمة',
+    },
+    hero: {
+      badge: 'الجيل الجديد لحجز التذاكر عالي الكثافة',
+      title: 'اكتشف واحجز تجارب وفعاليات استثنائية',
+      subtitle:
+        'احجز المقاعد ذات الإقبال العالي فورياً مع كشف فوري للتعارض وتذاكر رقمية مشفرة وضمان عدم الحجز المزدوج.',
+      metrics: {
+        seats_val: '520',
+        seats_label: 'مقعداً فورياً',
+        lock_val: '300s',
+        lock_label: 'حجز ذري مؤكد',
+        qr_val: 'HMAC-SHA256',
+        qr_label: 'تذاكر مشفرة',
+      },
+      search_placeholder: 'ابحث عن الفعاليات، الفنانين، القاعات...',
+      search_aria: 'البحث عن الفعاليات بالكلمات المفتاحية',
+      clear_search: 'مسح نص البحث',
+      categories: {
+        all: 'الكل',
+        classical: 'كلاسيكي',
+        rock_pop: 'روك وبوب',
+        theatre: 'مسرح',
+        festivals: 'مهرجانات',
+      },
+    },
+    events: {
+      eyebrow: 'متاح الآن',
+      section_title: 'أبرز الفعاليات الحية',
+      section_desc:
+        'اختر فعالية لاستكشاف خريطة المقاعد التفاعلية وأسعار الفئات وتثبيت مقاعدك فورياً.',
+      empty_title: 'لم يتم العثور على فعاليات',
+      empty_desc: 'لم نتمكن من العثور على أي فعاليات مطابقة لبحثك.',
+      reset_filters: 'إعادة ضبط التصفية',
+      tickets_from: 'التذاكر تبدأ من',
+      tickets: 'التذاكر',
+      select_seats: 'اختر المقاعد ←',
+      live_map: 'خريطة تفاعلية حية',
+      back_to_events: '← العودة إلى الفعاليات',
+    },
+    why: {
+      eyebrow: 'مصممة للتعامل مع أعلى كثافة حجز',
+      title: 'لماذا تيكت كرافت؟',
+      subtitle:
+        'بنيتنا الموزعة تقضي على تعارض الحجوزات وتقلل زمن الاستجابة وتضمن دخولاً آمناً غير قابل للتلاعب.',
+      card1: {
+        tag: 'تسريع بالمعالج الرسومي',
+        title: 'محرك SVG للتكبير والتحريك بـ 60 إطاراً/ثانية',
+        body: 'تصيير متجهات مسرّع عتادياً لأكثر من 520 مقعداً مع تكبير سلس وفحص فوري للمقاعد دون بطء.',
+        bullet1: 'حلقة تصيير أسرع من 16 مللي ثانية مع تحجيم متجهات أصيل',
+        bullet2: 'تنقل عبر الشبكة بدعم كامل للوحة المفاتيح ومعايير الوصول',
+        bullet3: 'لوحة ألوان متوافقة مع عمى الألوان لجميع الفئات',
+      },
+      card2: {
+        tag: 'صفر حجوزات مكررة',
+        title: 'حجز مؤقت مانع للتعارض (300 ثانية)',
+        body: 'قفل ذري مدعوم بـ PostgreSQL RPC وتزامن Supabase الفوري يمنع الحجز المزدوج تماماً بعد تنازلي لمدة 300 ثانية.',
+        bullet1: 'إجراءات PostgreSQL الذرية تقفل المقاعد المحجوزة فورياً',
+        bullet2: 'بث التحديثات خلال 200 مللي ثانية لجميع المستخدمين النشطين',
+        bullet3: 'تحرير المقاعد تلقائياً فور انتهاء مهلة الحجز',
+      },
+      card3: {
+        tag: 'مقاومة للتزوير',
+        title: 'تذاكر QR مشفرة تعمل دون إنترنت',
+        body: 'تذاكر دخول موقعة تشفيرياً بـ HMAC-SHA256 يتم التحقق منها بأجزاء من الثانية وتعمل بالكامل دون اتصال عند بوابات الدخول.',
+        bullet1: 'تحقق عميل موثوق عبر معايير W3C Web Crypto API',
+        bullet2: 'وضع سطوع عالي للمسح البصري السريع عند البوابات',
+        bullet3: 'تصدير قابل للطباعة بصيغ PDF بحجم A5 وبطاقات PNG رقمية',
+      },
+    },
+    seatmap: {
+      stage: 'منطقة المسرح / العرض',
+      zoom_in: 'تكبير',
+      zoom_out: 'تصغير',
+      reset_view: 'إعادة ضبط العرض',
+      loading: 'جاري تحميل مخطط مقاعد القاعة...',
+      vip: 'كبار الشخصيات',
+      regular: 'عادي',
+      balcony: 'شرفة',
+      available: 'متاح',
+      selected: 'محدد',
+      reserved: 'محجوز مؤقتاً',
+      sold: 'مباع',
+      row: 'الصف',
+      seat: 'المقعد',
+      price: 'السعر',
+      status: 'الحالة',
+      status_title: 'الحالة:',
+      tiers_title: 'الفئات:',
+    },
+    cart: {
+      title: 'المقاعد المحددة',
+      your_selection: 'المقاعد المحددة',
+      seats_count: 'مقاعد محددة',
+      subtotal: 'المجموع الفرعي',
+      empty: 'لم يتم تحديد مقاعد بعد. انقر على أي مقعد متاح على الخريطة.',
+      max_alert: 'الحد الأقصى 5 مقاعد لكل حجز.',
+      proceed: 'المتابعة إلى الدفع',
+      view_seats: '▲ عرض المقاعد',
+      hide_seats: '▼ إخفاء',
+      remove_seat: 'إزالة المقعد',
+    },
+    hold: {
+      banner_locked: 'المقاعد محجوزة مؤقتاً لإتمام الدفع',
+      timer_label: 'الوقت المتبقي للحجز',
+      time_remaining: 'الوقت المتبقي:',
+      urgent_warning: 'أقل من دقيقة متبقية! يرجى إتمام عملية الدفع.',
+      expired_title: 'انتهت صلاحية الحجز',
+      expired_desc:
+        'انتهت فترة الـ 300 ثانية للحجز المؤقت وتم تحرير المقاعد للجمهور مرة أخرى.',
+      back_to_map: 'العودة إلى خريطة المقاعد',
+    },
+    auth: {
+      modal_title: 'تسجيل الدخول لإتمام الحجز',
+      signin_tab: 'تسجيل الدخول',
+      signup_tab: 'إنشاء حساب',
+      email_label: 'البريد الإلكتروني',
+      password_label: 'كلمة المرور',
+      full_name_label: 'الاسم الكامل',
+      signin_btn: 'تسجيل الدخول',
+      signup_btn: 'إنشاء حساب جديد',
+      guest_mode: 'المتابعة كزائر',
+      oauth_google: 'المتابعة عبر Google',
+      oauth_github: 'المتابعة عبر GitHub',
+    },
+    checkout: {
+      step_review: 'الخطوة 1: مراجعة السلة',
+      step_payment: 'الخطوة 2: تفاصيل الدفع',
+      review_cart: 'مراجعة السلة',
+      payment: 'الدفع والتأكيد',
+      payment_title: 'الدفع وتأكيد الحجز',
+      payment_subtitle: 'راجع طلبك وأكمل عملية الدفع لتأكيد حجز تذاكرك.',
+      attendee_name: 'اسم الحاضر',
+      email_address: 'البريد الإلكتروني',
+      payment_details: 'بيانات الدفع',
+      card_number: 'رقم البطاقة',
+      expiry: 'الشهر/السنة',
+      cvv: 'رمز الأمان (CVV)',
+      confirm_and_pay: 'تأكيد ودفع',
+      processing: 'جاري تأمين تذاكرك...',
+      order_summary: 'ملخص الحجز',
+      seats_reserved: 'المقاعد المحجوزة',
+      total_amount: 'المبلغ الإجمالي',
+    },
+    tickets: {
+      title: 'تذاكري',
+      subtitle:
+        'إدارة حجوزاتك المؤكدة والوصول إلى تذاكر QR الرقمية للدخول.',
+      tab_upcoming: 'الفعاليات القادمة',
+      tab_past: 'الفعاليات السابقة',
+      no_tickets_title: 'لا توجد تذاكر',
+      no_tickets_desc:
+        'ليس لديك تذاكر نشطة حالياً. تصفح المقاعد المتاحة واحجز فعاليتك الأولى.',
+      no_past_desc: 'ليس لديك أي تذاكر لفعاليات سابقة.',
+      explore_events: 'استكشاف الفعاليات',
+      loading: 'جاري تحميل تذاكرك المؤكدة...',
+      show_qr: 'عرض تذكرة QR',
+      download_pdf: 'تحميل PDF',
+      download_png: 'تحميل PNG',
+      brightness_boost: 'وضع السطوع العالي لمسح البوابات',
+      entry_pass: 'تذكرة دخول معتمدة',
+      verified: 'تم التحقق تشفيرياً بـ HMAC-SHA256',
+      seat_label: 'مقعد',
+      row_label: 'صف',
+      code_label: 'الرمز:',
+      status_valid: 'تذكرة صالحة',
+      status_used: 'مستخدمة',
+      close: 'إغلاق',
+    },
+    scanner: {
+      title: 'ماسح تذاكر البوابات',
+      back: 'الخروج من الماسح',
+      admitted: 'تم الدخول',
+      declined: 'مرفوض',
+      manual_entry: 'إدخال يدوي',
+      entry_granted: 'تم السماح بالدخول',
+      already_used: 'تم استخدامها مسبقاً',
+      invalid_ticket: 'تذكرة غير صالحة',
+      offline_warning: 'وضع عدم الاتصال - يُنصح بالتحقق البصري من الهوية',
+      scan_next_btn: 'مسح الحاضر التالي ⬅️',
+      dismiss_scan_next_btn: 'إغلاق ومسح التالي ⬅️',
+      acknowledge_btn: 'تأكيد والمتابعة ⬅️',
+      entry_granted_title: 'تم تأكيد الدخول بنجاح',
+      already_used_title: 'تنبيه: التذكرة مستخدمة مسبقاً',
+      security_alert_title: 'تحذير أمني: تذكرة مشبوهة',
+      wrong_event_title: 'التذكرة تتبع فعالية أخرى',
+      ticket_not_found_title: 'رمز التذكرة غير مسجل بالنظام',
+    },
+    footer: {
+      brand_name: 'تيكت كرافت',
+      description:
+        'منصة حجز تذاكر تفاعلية مصممة لخرائط المقاعد عالية الكثافة والحجز الذري والتذاكر الرقمية المشفرة.',
+      platform: 'المنصة',
+      architecture: 'البنية الهندسية',
+      security: 'الأمان والضمان',
+      auditorium_map: 'خريطة القاعة',
+      featured_events: 'الفعاليات المميزة',
+      my_passes: 'تذاكري وتصاريحي',
+      copyright:
+        '© 2026 تيكت كرافت، جميع الحقوق محفوظة. صُممت بدقة للفعاليات الحية.',
+      status_online: 'عنقود الحجز الفوري: متصل',
+    },
+  },
+
   en: {
     navbar: {
       brand_name: 'TicketCraft',
@@ -17,6 +236,8 @@ export const translations = {
       sign_out: 'Sign Out',
       lang_toggle: 'العربية',
       lang_aria: 'Switch to Arabic',
+      open_menu: 'Open Navigation Menu',
+      close_menu: 'Close Menu',
     },
     hero: {
       badge: 'Next-Gen High Concurrency Ticketing',
@@ -101,18 +322,27 @@ export const translations = {
       sold: 'Sold',
       row: 'Row',
       seat: 'Seat',
+      price: 'Price',
+      status: 'Status',
+      status_title: 'Status:',
+      tiers_title: 'Tiers:',
     },
     cart: {
       title: 'Selected Seats',
+      your_selection: 'Your Selection',
       seats_count: 'seats selected',
       subtotal: 'Subtotal',
       empty: 'No seats selected yet. Click any available seat on the map.',
       max_alert: 'Maximum of 5 seats allowed per booking.',
       proceed: 'Proceed to Checkout',
+      view_seats: '▲ View Seats',
+      hide_seats: '▼ Hide',
+      remove_seat: 'Remove seat',
     },
     hold: {
       banner_locked: 'Seats locked for checkout',
       timer_label: 'Hold Time Remaining',
+      time_remaining: 'Time Remaining:',
       urgent_warning: 'Less than 1 minute remaining! Please complete your purchase.',
       expired_title: 'Reservation Expired',
       expired_desc:
@@ -135,11 +365,21 @@ export const translations = {
     checkout: {
       step_review: 'Step 1: Review Tickets',
       step_payment: 'Step 2: Payment Details',
+      review_cart: 'Review Cart',
+      payment: 'Payment',
+      payment_title: 'Payment & Confirmation',
+      payment_subtitle: 'Review your order and complete payment for your reserved tickets.',
+      attendee_name: 'Attendee Name',
+      email_address: 'Email Address',
+      payment_details: 'Payment Details',
       card_number: 'Card Number',
       expiry: 'MM/YY',
       cvv: 'CVV',
       confirm_and_pay: 'Confirm & Pay',
       processing: 'Securing Your Tickets...',
+      order_summary: 'Order Summary',
+      seats_reserved: 'Seats Reserved',
+      total_amount: 'Total Amount',
     },
     tickets: {
       title: 'My Tickets',
@@ -159,6 +399,12 @@ export const translations = {
       brightness_boost: 'High-Contrast Gate Scanner Mode',
       entry_pass: 'Verified Entry Pass',
       verified: 'HMAC-SHA256 Authenticated',
+      seat_label: 'Seat',
+      row_label: 'Row',
+      code_label: 'Code:',
+      status_valid: 'Valid Pass',
+      status_used: 'Used',
+      close: 'Close',
     },
     scanner: {
       title: 'Gate Ticket Scanner',
@@ -170,6 +416,14 @@ export const translations = {
       already_used: 'Already Used',
       invalid_ticket: 'Invalid Ticket',
       offline_warning: 'Offline Mode - Visual ID Verification Advised',
+      scan_next_btn: 'Scan Next Attendee ➔',
+      dismiss_scan_next_btn: 'Dismiss & Scan Next ➔',
+      acknowledge_btn: 'Acknowledge & Continue ➔',
+      entry_granted_title: 'ENTRY GRANTED',
+      already_used_title: 'ALREADY SCANNED',
+      security_alert_title: 'SECURITY ALERT',
+      wrong_event_title: 'WRONG EVENT',
+      ticket_not_found_title: 'TICKET NOT FOUND',
     },
     footer: {
       brand_name: 'TicketCraft',
@@ -186,189 +440,6 @@ export const translations = {
       status_online: 'Realtime Booking Cluster: Online',
     },
   },
-
-  ar: {
-    navbar: {
-      brand_name: 'تيكت كرافت',
-      tagline: 'حجز تذاكر تفاعلي فوري',
-      home: 'الرئيسية',
-      featured_events: 'الفعاليات المميزة',
-      my_tickets: 'تذاكري',
-      scanner: 'ماسح البوابات',
-      guest: 'زائر',
-      sign_in: 'تسجيل الدخول',
-      sign_out: 'تسجيل الخروج',
-      lang_toggle: 'English',
-      lang_aria: 'التبديل إلى الإنجليزية',
-    },
-    hero: {
-      badge: 'الجيل الجديد لحجز التذاكر عالي الكثافة',
-      title: 'اكتشف واحجز تجارب وفعاليات استثنائية',
-      subtitle:
-        'احجز المقاعد ذات الإقبال العالي فورياً مع كشف فوري للتعارض وتذاكر رقمية مشفرة وضمان عدم الحجز المزدوج.',
-      metrics: {
-        seats_val: '٥٢٠',
-        seats_label: 'مقعداً فورياً',
-        lock_val: '٣٠٠ ثانية',
-        lock_label: 'حجز ذري مؤكد',
-        qr_val: 'HMAC-SHA256',
-        qr_label: 'تذاكر مشفرة',
-      },
-      search_placeholder: 'ابحث عن الفعاليات، الفنانين، القاعات...',
-      search_aria: 'البحث عن الفعاليات بالكلمات المفتاحية',
-      clear_search: 'مسح نص البحث',
-      categories: {
-        all: 'الكل',
-        classical: 'كلاسيكي',
-        rock_pop: 'روك وبوب',
-        theatre: 'مسرح',
-        festivals: 'مهرجانات',
-      },
-    },
-    events: {
-      eyebrow: 'متاح الآن',
-      section_title: 'أبرز الفعاليات الحية',
-      section_desc:
-        'اختر فعالية لاستكشاف خريطة المقاعد التفاعلية وأسعار الفئات وتثبيت مقاعدك فورياً.',
-      empty_title: 'لم يتم العثور على فعاليات',
-      empty_desc: 'لم نتمكن من العثور على أي فعاليات مطابقة لبحثك.',
-      reset_filters: 'إعادة ضبط التصفية',
-      tickets_from: 'التذاكر تبدأ من',
-      tickets: 'التذاكر',
-      select_seats: 'اختر المقاعد ←',
-      live_map: 'خريطة تفاعلية حية',
-      back_to_events: '← العودة إلى الفعاليات',
-    },
-    why: {
-      eyebrow: 'مصممة للتعامل مع أعلى كثافة حجز',
-      title: 'لماذا تيكت كرافت؟',
-      subtitle:
-        'بنيتنا الموزعة تقضي على تعارض الحجوزات وتقلل زمن الاستجابة وتضمن دخولاً آمناً غير قابل للتلاعب.',
-      card1: {
-        tag: 'تسريع بالمعالج الرسومي',
-        title: 'محرك SVG للتكبير والتحريك بـ ٦٠ إطاراً/ثانية',
-        body: 'تصيير متجهات مسرّع عتادياً لأكثر من ٥٢٠ مقعداً مع تكبير سلس وفحص فوري للمقاعد دون بطء.',
-        bullet1: 'حلقة تصيير أسرع من ١٦ مللي ثانية مع تحجيم متجهات أصيل',
-        bullet2: 'تنقل عبر الشبكة بدعم كامل للوحة المفاتيح ومعايير الوصول',
-        bullet3: 'لوحة ألوان متوافقة مع عمى الألوان لجميع الفئات',
-      },
-      card2: {
-        tag: 'صفر حجوزات مكررة',
-        title: 'حجز مؤقت مانع للتعارض (٣٠٠ ثانية)',
-        body: 'قفل ذري مدعوم بـ PostgreSQL RPC وتزامن Supabase الفوري يمنع الحجز المزدوج تماماً بعد تنازلي لمدة ٣٠٠ ثانية.',
-        bullet1: 'إجراءات PostgreSQL الذرية تقفل المقاعد المحجوزة فورياً',
-        bullet2: 'بث التحديثات خلال ٢٠٠ مللي ثانية لجميع المستخدمين النشطين',
-        bullet3: 'تحرير المقاعد تلقائياً فور انتهاء مهلة الحجز',
-      },
-      card3: {
-        tag: 'مقاومة للتزوير',
-        title: 'تذاكر QR مشفرة تعمل دون إنترنت',
-        body: 'تذاكر دخول موقعة تشفيرياً بـ HMAC-SHA256 يتم التحقق منها بأجزاء من الثانية وتعمل بالكامل دون اتصال عند بوابات الدخول.',
-        bullet1: 'تحقق عميل موثوق عبر معايير W3C Web Crypto API',
-        bullet2: 'وضع سطوع عالي للمسح البصري السريع عند البوابات',
-        bullet3: 'تصدير قابل للطباعة بصيغ PDF بحجم A5 وبطاقات PNG رقمية',
-      },
-    },
-    seatmap: {
-      stage: 'منطقة المسرح / العرض',
-      zoom_in: 'تكبير',
-      zoom_out: 'تصغير',
-      reset_view: 'إعادة ضبط العرض',
-      loading: 'جاري تحميل مخطط مقاعد القاعة...',
-      vip: 'كبار الشخصيات',
-      regular: 'عادي',
-      balcony: 'شرفة',
-      available: 'متاح',
-      selected: 'محدد',
-      reserved: 'محجوز مؤقتاً',
-      sold: 'مباع',
-      row: 'الصف',
-      seat: 'المقعد',
-    },
-    cart: {
-      title: 'المقاعد المحددة',
-      seats_count: 'مقاعد محددة',
-      subtotal: 'المجموع الفرعي',
-      empty: 'لم يتم تحديد مقاعد بعد. انقر على أي مقعد متاح على الخريطة.',
-      max_alert: 'الحد الأقصى ٥ مقاعد لكل حجز.',
-      proceed: 'المتابعة إلى الدفع',
-    },
-    hold: {
-      banner_locked: 'المقاعد محجوزة مؤقتاً لإتمام الدفع',
-      timer_label: 'الوقت المتبقي للحجز',
-      urgent_warning: 'أقل من دقيقة متبقية! يرجى إتمام عملية الدفع.',
-      expired_title: 'انتهت صلاحية الحجز',
-      expired_desc:
-        'انتهت فترة الـ ٣٠٠ ثانية للحجز المؤقت وتم تحرير المقاعد للجمهور مرة أخرى.',
-      back_to_map: 'العودة إلى خريطة المقاعد',
-    },
-    auth: {
-      modal_title: 'تسجيل الدخول لإتمام الحجز',
-      signin_tab: 'تسجيل الدخول',
-      signup_tab: 'إنشاء حساب',
-      email_label: 'البريد الإلكتروني',
-      password_label: 'كلمة المرور',
-      full_name_label: 'الاسم الكامل',
-      signin_btn: 'تسجيل الدخول',
-      signup_btn: 'إنشاء حساب جديد',
-      guest_mode: 'المتابعة كزائر',
-      oauth_google: 'المتابعة عبر Google',
-      oauth_github: 'المتابعة عبر GitHub',
-    },
-    checkout: {
-      step_review: 'الخطوة ١: مراجعة التذاكر',
-      step_payment: 'الخطوة ٢: تفاصيل الدفع',
-      card_number: 'رقم البطاقة',
-      expiry: 'الشهر/السنة',
-      cvv: 'رمز الأمان (CVV)',
-      confirm_and_pay: 'تأكيد ودفع',
-      processing: 'جاري تأمين تذاكرك...',
-    },
-    tickets: {
-      title: 'تذاكري',
-      subtitle:
-        'إدارة حجوزاتك المؤكدة والوصول إلى تذاكر QR الرقمية للدخول.',
-      tab_upcoming: 'الفعاليات القادمة',
-      tab_past: 'الفعاليات السابقة',
-      no_tickets_title: 'لا توجد تذاكر',
-      no_tickets_desc:
-        'ليس لديك تذاكر نشطة حالياً. تصفح المقاعد المتاحة واحجز فعاليتك الأولى.',
-      no_past_desc: 'ليس لديك أي تذاكر لفعاليات سابقة.',
-      explore_events: 'استكشاف الفعاليات',
-      loading: 'جاري تحميل تذاكرك المؤكدة...',
-      show_qr: 'عرض تذكرة QR',
-      download_pdf: 'تحميل PDF',
-      download_png: 'تحميل PNG',
-      brightness_boost: 'وضع السطوع العالي لمسح البوابات',
-      entry_pass: 'تذكرة دخول معتمدة',
-      verified: 'تم التحقق تشفيرياً بـ HMAC-SHA256',
-    },
-    scanner: {
-      title: 'ماسح تذاكر البوابات',
-      back: 'الخروج من الماسح',
-      admitted: 'تم الدخول',
-      declined: 'مرفوض',
-      manual_entry: 'إدخال يدوي',
-      entry_granted: 'تم السماح بالدخول',
-      already_used: 'تم استخدامها مسبقاً',
-      invalid_ticket: 'تذكرة غير صالحة',
-      offline_warning: 'وضع عدم الاتصال - يُنصح بالتحقق البصري من الهوية',
-    },
-    footer: {
-      brand_name: 'تيكت كرافت',
-      description:
-        'منصة حجز تذاكر تفاعلية مصممة لخرائط المقاعد عالية الكثافة والحجز الذري والتذاكر الرقمية المشفرة.',
-      platform: 'المنصة',
-      architecture: 'البنية الهندسية',
-      security: 'الأمان والضمان',
-      auditorium_map: 'خريطة القاعة',
-      featured_events: 'الفعاليات المميزة',
-      my_passes: 'تذاكري وتصاريحي',
-      copyright:
-        '© ٢٠٢٦ تيكت كرافت، جميع الحقوق محفوظة. صُممت بدقة للفعاليات الحية.',
-      status_online: 'عنقود الحجز الفوري: متصل',
-    },
-  },
 };
 
 /**
@@ -380,7 +451,7 @@ export const translations = {
  */
 export function getTranslation(lang, key, fallback) {
   if (!key) return fallback || '';
-  const currentDict = translations[lang] || translations.en;
+  const currentDict = translations[lang] || translations.ar || translations.en;
 
   const parts = key.split('.');
   let current = currentDict;
@@ -397,20 +468,19 @@ export function getTranslation(lang, key, fallback) {
     return current;
   }
 
-  // Fallback to English dictionary
-  if (lang !== 'en') {
-    let enCurrent = translations.en;
-    for (const part of parts) {
-      if (enCurrent && typeof enCurrent === 'object' && part in enCurrent) {
-        enCurrent = enCurrent[part];
-      } else {
-        enCurrent = undefined;
-        break;
-      }
+  // Fallback to Arabic dictionary if currently en, or to English if currently ar
+  const fallbackLang = lang === 'ar' ? 'en' : 'ar';
+  let fallbackDict = translations[fallbackLang];
+  for (const part of parts) {
+    if (fallbackDict && typeof fallbackDict === 'object' && part in fallbackDict) {
+      fallbackDict = fallbackDict[part];
+    } else {
+      fallbackDict = undefined;
+      break;
     }
-    if (typeof enCurrent === 'string') {
-      return enCurrent;
-    }
+  }
+  if (typeof fallbackDict === 'string') {
+    return fallbackDict;
   }
 
   return fallback !== undefined ? fallback : key;

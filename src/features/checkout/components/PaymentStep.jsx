@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { HoldTimer } from '../../hold/HoldTimer';
 import { formatCurrency } from '../../seatmap/utils/formatters';
 import { ticketingService as mockTicketingService } from '../../../services';
+import { useLanguage } from '../../../context';
 import '../CheckoutFlow.css';
 
 /**
@@ -18,13 +19,13 @@ export function PaymentStep({
   onReturnToMap,
   onPaymentSuccess,
 }) {
+  const { t, isRtl } = useLanguage();
   const [formData, setFormData] = useState({
     name: user?.user_metadata?.full_name || 'Valued Attendee',
     email: user?.email || '',
     cardNumber: '•••• •••• •••• 4242',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [paymentError, setPaymentError] = useState(null);
 
   const handleSubmit = async (e) => {
@@ -72,14 +73,22 @@ export function PaymentStep({
     }
   };
 
+  const getTierName = (tier) => {
+    const lower = (tier || '').toLowerCase();
+    if (lower.includes('vip')) return t('seatmap.vip', 'كبار الشخصيات');
+    if (lower.includes('balcony')) return t('seatmap.balcony', 'شرفة');
+    if (lower.includes('regular') || lower.includes('standard')) return t('seatmap.regular', 'عادي');
+    return tier;
+  };
+
   return (
-    <div className="payment-step-container" data-testid="checkout-step-payment">
+    <div className="payment-step-container" data-testid="checkout-step-payment" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* Top Header with Continuing Countdown Timer */}
       <header className="payment-step-header">
         <div className="payment-header-info">
-          <h2 className="payment-title">Payment & Confirmation</h2>
+          <h2 className="payment-title">{t('checkout.payment_title', 'الدفع وتأكيد الحجز')}</h2>
           <p className="payment-subtitle">
-            Review your order and complete payment for your reserved tickets.
+            {t('checkout.payment_subtitle', 'راجع طلبك وأكمل عملية الدفع لتأكيد حجز تذاكرك.')}
           </p>
         </div>
 
@@ -88,7 +97,7 @@ export function PaymentStep({
 
       <div className="payment-grid">
         {/* Attendee & Payment Form */}
-        <section className="payment-form-card" aria-label="Payment Form">
+        <section className="payment-form-card" aria-label={t('checkout.payment_details', 'بيانات الدفع')}>
           {paymentError && (
             <div className="payment-error-alert" role="alert" style={{ background: '#FEE2E2', color: '#991B1B', padding: '0.75rem 1rem', borderRadius: '6px', marginBottom: '1rem', border: '1px solid #F87171' }}>
               {paymentError}
@@ -96,7 +105,7 @@ export function PaymentStep({
           )}
           <form onSubmit={handleSubmit} className="payment-form">
             <div className="form-group">
-              <label htmlFor="attendee-name">Attendee Name</label>
+              <label htmlFor="attendee-name">{t('checkout.attendee_name', 'اسم الحاضر')}</label>
               <input
                 id="attendee-name"
                 type="text"
@@ -108,10 +117,12 @@ export function PaymentStep({
             </div>
 
             <div className="form-group">
-              <label htmlFor="attendee-email">Email Address</label>
+              <label htmlFor="attendee-email">{t('checkout.email_address', 'البريد الإلكتروني')}</label>
               <input
                 id="attendee-email"
                 type="email"
+                dir="ltr"
+                style={{ textAlign: 'start' }}
                 disabled={isExpired || isSubmitting}
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -120,10 +131,12 @@ export function PaymentStep({
             </div>
 
             <div className="form-group">
-              <label htmlFor="card-number">Payment Details</label>
+              <label htmlFor="card-number">{t('checkout.payment_details', 'بيانات الدفع')}</label>
               <input
                 id="card-number"
                 type="text"
+                dir="ltr"
+                style={{ textAlign: 'start' }}
                 disabled={isExpired || isSubmitting}
                 value={formData.cardNumber}
                 onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value })}
@@ -138,24 +151,28 @@ export function PaymentStep({
               disabled={isExpired || isSubmitting}
             >
               {isSubmitting
-                ? 'Processing Payment...'
-                : `Confirm & Pay ${formatCurrency(subtotal)}`}
+                ? t('checkout.processing', 'جاري تأمين تذاكرك...')
+                : `${t('checkout.confirm_and_pay', 'تأكيد ودفع')} ${formatCurrency(subtotal)}`}
             </button>
           </form>
         </section>
 
         {/* Retained Order Summary */}
-        <aside className="payment-summary-card" aria-label="Reserved Order Summary">
-          <h3 className="summary-title">Reserved Seats ({selectedSeats.length})</h3>
+        <aside className="payment-summary-card" aria-label={t('checkout.order_summary', 'ملخص الحجز')}>
+          <h3 className="summary-title">
+            {t('checkout.seats_reserved', 'المقاعد المحجوزة')} ({selectedSeats.length})
+          </h3>
 
           <div className="payment-seat-tags">
             {selectedSeats.map((seat) => (
               <div key={seat.id} className="payment-seat-row" data-testid={`retained-seat-${seat.id}`}>
                 <div className="seat-badge-info">
-                  <span className="seat-code">{seat.rowLabel ? `Seat ${seat.rowLabel}-${seat.seatNumber}` : seat.id}</span>
-                  <span className="seat-tier"> ({seat.category || 'Standard'})</span>
+                  <span className="seat-code">
+                    {seat.rowLabel ? `${t('seatmap.seat', 'المقعد')} ${seat.rowLabel}-${seat.seatNumber}` : seat.id}
+                  </span>
+                  <span className="seat-tier"> ({getTierName(seat.category || 'Standard')})</span>
                 </div>
-                <span className="seat-price">{formatCurrency(seat.price)}</span>
+                <span className="seat-price" dir="ltr">{formatCurrency(seat.price)}</span>
               </div>
             ))}
           </div>
@@ -163,8 +180,8 @@ export function PaymentStep({
           <div className="payment-divider" />
 
           <div className="payment-subtotal-row">
-            <span>Subtotal</span>
-            <strong className="payment-subtotal-val" data-testid="cart-subtotal">
+            <span>{t('cart.subtotal', 'المجموع الفرعي')}</span>
+            <strong className="payment-subtotal-val" data-testid="cart-subtotal" dir="ltr">
               {formatCurrency(subtotal)}
             </strong>
           </div>
@@ -175,7 +192,7 @@ export function PaymentStep({
             onClick={onReturnToMap}
             disabled={isSubmitting}
           >
-            Change Seats
+            {t('hold.back_to_map', 'العودة لاختيار المقاعد')}
           </button>
         </aside>
       </div>

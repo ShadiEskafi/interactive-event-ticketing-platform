@@ -1,5 +1,6 @@
 import { useTicketExport } from '../hooks/useTicketExport';
 import { formatCurrency } from '../../seatmap/utils/formatters';
+import { useLanguage } from '../../../context';
 
 /**
  * Compact Ticket Card Component for Dashboard (SPEC-04 / REQ-TICK-04.5)
@@ -8,6 +9,7 @@ export function TicketCard({
   ticket,
   onShowQr,
 }) {
+  const { t } = useLanguage();
   const { isExportingPdf, isExportingPng, downloadPdf } = useTicketExport();
 
   if (!ticket) return null;
@@ -21,7 +23,7 @@ export function TicketCard({
       <div className="ticket-card-header">
         <div className="ticket-card-seat">
           <span className="seat-badge-title">
-            Seat {ticket.row_label || 'A'}-{ticket.seat_number || ticket.seat_id}
+            {t('tickets.seat_label', 'Seat')} {ticket.row_label || 'A'}-{ticket.seat_number || ticket.seat_id}
           </span>
           <span
             className="seat-tier-pill"
@@ -30,15 +32,17 @@ export function TicketCard({
             {tier}
           </span>
         </div>
-        <div className="ticket-card-price">{formatCurrency(ticket.price || 150)}</div>
+        <div className="ticket-card-price" dir="ltr">{formatCurrency(ticket.price || 150)}</div>
       </div>
 
       <div className="ticket-card-meta">
-        <span className="ticket-card-code">Code: {ticket.ticket_code}</span>
+        <span className="ticket-card-code">
+          {t('tickets.code_label', 'Code:')} <span dir="ltr">{ticket.ticket_code}</span>
+        </span>
         {ticket.is_used ? (
-          <span className="ticket-status-used">Used</span>
+          <span className="ticket-status-used">{t('tickets.status_used', 'Used')}</span>
         ) : (
-          <span className="ticket-status-valid">Valid Pass</span>
+          <span className="ticket-status-valid">{t('tickets.status_valid', 'Valid Pass')}</span>
         )}
       </div>
 
@@ -55,7 +59,7 @@ export function TicketCard({
             <rect x="14" y="14" width="7" height="7" />
             <rect x="3" y="14" width="7" height="7" />
           </svg>
-          Show QR Pass
+          {t('tickets.show_qr', 'Show QR Pass')}
         </button>
 
         <button
@@ -64,7 +68,7 @@ export function TicketCard({
           data-testid="btn-quick-pdf"
           disabled={isExportingPdf || isExportingPng}
           onClick={() => downloadPdf(ticket)}
-          title="Download PDF Ticket"
+          title={t('tickets.download_pdf', 'Download PDF')}
         >
           PDF
         </button>

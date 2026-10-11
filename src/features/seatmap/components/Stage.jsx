@@ -1,8 +1,13 @@
+import { useLanguage } from '../../../context';
+
 /**
  * SVG Stage representation
  */
 export function Stage({ stage }) {
+  const { t } = useLanguage();
   if (!stage) return null;
+
+  const stageLabel = stage.label || t('seatmap.stage', 'منطقة المسرح / العرض');
 
   return (
     <g className="stage-area" aria-hidden="true">
@@ -25,10 +30,10 @@ export function Stage({ stage }) {
         fill="#F8FAFC"
         fontSize="15"
         fontWeight="700"
-        letterSpacing="3"
+        letterSpacing="2"
         style={{ userSelect: 'none' }}
       >
-        {stage.label || 'STAGE / PERFORMANCE AREA'}
+        {stageLabel}
       </text>
     </g>
   );

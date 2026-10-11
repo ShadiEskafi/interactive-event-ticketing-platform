@@ -4,6 +4,7 @@ import { useAuthBoundary } from '../auth/hooks/useAuthBoundary';
 import { AuthModal } from '../auth/AuthModal';
 import { PaymentStep } from './components/PaymentStep';
 import { CartSummary } from '../seatmap/components/CartSummary';
+import { useLanguage } from '../../context';
 import './CheckoutFlow.css';
 
 /**
@@ -25,6 +26,7 @@ export function CheckoutFlow({
   initialStep = 'review',
 }) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [step, setStep] = useState(initialStep); // 'review' | 'payment'
   const [authenticatedAttendee, setAuthenticatedAttendee] = useState(user);
 
@@ -72,14 +74,14 @@ export function CheckoutFlow({
   return (
     <div className="checkout-flow-container" data-testid="checkout-flow">
       {/* Checkout Step Breadcrumbs */}
-      <nav className="checkout-flow-steps" aria-label="Checkout Progress">
+      <nav className="checkout-flow-steps" aria-label={t('checkout.step_review', 'Checkout Progress')}>
         <div className={`step-indicator ${step === 'review' ? 'active' : 'completed'}`}>
           <span className="step-number">1</span>
-          <span className="step-label">Review Cart</span>
+          <span className="step-label">{t('checkout.review_cart', 'Review Cart')}</span>
         </div>
         <div className={`step-indicator ${step === 'payment' ? 'active' : ''}`}>
           <span className="step-number">2</span>
-          <span className="step-label">Payment</span>
+          <span className="step-label">{t('checkout.payment', 'Payment')}</span>
         </div>
       </nav>
 

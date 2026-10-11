@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
+import { useLanguage } from '../../context';
 
 /**
  * Blocking Session Expired Modal (Triggered when hold reaches 00:00)
  */
 export function SessionExpiredModal({ isOpen, onReturnToMap }) {
+  const { t } = useLanguage();
   const returnBtnRef = useRef(null);
 
   useEffect(() => {
@@ -32,11 +34,14 @@ export function SessionExpiredModal({ isOpen, onReturnToMap }) {
         </div>
 
         <h2 id="expired-modal-title" className="expired-modal-title">
-          Reservation Expired
+          {t('hold.expired_title', 'انتهت صلاحية الحجز')}
         </h2>
 
         <p id="expired-modal-desc" className="expired-modal-description">
-          Your 5-minute hold on the selected seats has expired. To give other attendees a fair chance, these seats have been released back to the general pool.
+          {t(
+            'hold.expired_desc',
+            'انتهت فترة الـ 300 ثانية للحجز المؤقت وتم تحرير المقاعد للجمهور مرة أخرى.'
+          )}
         </p>
 
         <div className="expired-modal-actions">
@@ -46,7 +51,7 @@ export function SessionExpiredModal({ isOpen, onReturnToMap }) {
             className="btn-return-map"
             onClick={onReturnToMap}
           >
-            Return to Seat Map
+            {t('hold.back_to_map', 'العودة إلى خريطة المقاعد')}
           </button>
         </div>
       </div>

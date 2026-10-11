@@ -6,13 +6,13 @@ export const LANGUAGE_STORAGE_KEY = 'ticketcraft_lang';
 
 function getInitialLanguage() {
   if (typeof window === 'undefined' || !window.localStorage) {
-    return 'en';
+    return 'ar';
   }
   try {
     const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    return stored === 'ar' || stored === 'en' ? stored : 'en';
+    return stored === 'ar' || stored === 'en' ? stored : 'ar';
   } catch {
-    return 'en';
+    return 'ar';
   }
 }
 

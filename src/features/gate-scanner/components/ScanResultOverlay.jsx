@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getThemeForStatus } from '../scanResultThemes';
+import { useLanguage } from '../../../context';
 
 /**
  * Scan Result Overlay Component (Refactored)
@@ -7,6 +8,7 @@ import { getThemeForStatus } from '../scanResultThemes';
  * distinct animations, and accessibility-first design.
  */
 export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
+  const { t, isRtl } = useLanguage();
   const [progress, setProgress] = useState(100);
 
   const status = result?.status || 'UNKNOWN';
@@ -41,6 +43,24 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
   const isMismatch = status === 'EVENT_MISMATCH';
   const isNotFound = status === 'TICKET_NOT_FOUND';
 
+  const getLocalizedTitle = () => {
+    if (!isRtl) return theme.title;
+    if (isSuccess) return t('scanner.entry_granted_title', 'تم تأكيد الدخول بنجاح');
+    if (isDuplicate) return t('scanner.already_used_title', 'تنبيه: التذكرة مستخدمة مسبقاً');
+    if (isSecurity) return t('scanner.security_alert_title', 'تحذير أمني: تذكرة مشبوهة');
+    if (isMismatch) return t('scanner.wrong_event_title', 'التذكرة تتبع فعالية أخرى');
+    if (isNotFound) return t('scanner.ticket_not_found_title', 'رمز التذكرة غير مسجل بالنظام');
+    return t('scanner.invalid_ticket', theme.title);
+  };
+
+  const getLocalizedBtnLabel = () => {
+    if (!isRtl) return theme.btnLabel;
+    if (isSuccess || isMismatch || isNotFound) return t('scanner.scan_next_btn', 'مسح الحاضر التالي ⬅️');
+    if (isDuplicate) return t('scanner.dismiss_scan_next_btn', 'إغلاق ومسح التالي ⬅️');
+    if (isSecurity) return t('scanner.acknowledge_btn', 'تأكيد والمتابعة ⬅️');
+    return t('scanner.scan_next_btn', 'مسح الحاضر التالي ⬅️');
+  };
+
   return (
     <div
       className={`scan-result-overlay ${theme.cssClass} ${theme.animationClass} p-4 sm:p-6 flex items-center justify-center`}
@@ -50,6 +70,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
       aria-label={theme.ariaLabel}
       aria-live={theme.ariaLive}
       onClick={onClose}
+      dir={isRtl ? 'rtl' : 'ltr'}
     >
       <div
         className="scan-result-card w-full max-w-[92vw] sm:max-w-md max-h-[85vh] flex flex-col overflow-y-auto rounded-2xl"
@@ -67,7 +88,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
         {result.isOffline && (
           <div className="offline-badge-pill" data-testid="scan-offline-pill">
             <span className="pill-dot">⚠️</span>
-            <span>{result.offlineWarning || 'Offline Mode - Visual ID Verification Advised'}</span>
+            <span>{result.offlineWarning || t('scanner.offline_warning', 'وضع عدم الاتصال - يُنصح بالتحقق البصري من الهوية')}</span>
           </div>
         )}
 
@@ -80,7 +101,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
           </div>
 
           <h2 className="result-title" data-testid="result-title">
-            {theme.title}
+            {getLocalizedTitle()}
           </h2>
 
           <p className="result-subtitle" data-testid="result-message">
@@ -95,7 +116,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
           {isSuccess && (
             <>
               <div className="detail-row highlight-name">
-                <span className="detail-label">Attendee:</span>
+                <span className="detail-label">{t('checkout.attendee_name', 'Attendee:')}</span>
                 <span className="detail-value attendee-name" data-testid="result-attendee-name">
                   {result.attendee_name || 'Valued Attendee'}
                 </span>
@@ -103,7 +124,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
 
               <div className="detail-grid">
                 <div className="detail-item">
-                  <span className="detail-label">Tier</span>
+                  <span className="detail-label">{t('seatmap.tiers_title', 'Tier')}</span>
                   <span className="detail-value tier-badge" data-testid="result-tier">
                     {result.tier || 'Standard'}
                   </span>
@@ -115,13 +136,13 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
                   </span>
                 </div>
                 <div className="detail-item">
-                  <span className="detail-label">Row</span>
+                  <span className="detail-label">{t('seatmap.row', 'Row')}</span>
                   <span className="detail-value" data-testid="result-row">
                     {result.row_label || '-'}
                   </span>
                 </div>
                 <div className="detail-item">
-                  <span className="detail-label">Seat</span>
+                  <span className="detail-label">{t('seatmap.seat', 'Seat')}</span>
                   <span className="detail-value" data-testid="result-seat">
                     {result.seat_number || '-'}
                   </span>
@@ -139,7 +160,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
               </div>
               <div className="detail-row">
                 <span className="detail-label">First Scanned At:</span>
-                <span className="detail-value scanned-time" data-testid="result-scanned-at">
+                <span className="detail-value scanned-time" data-testid="result-scanned-at" dir="ltr">
                   {result.scanned_at ? new Date(result.scanned_at).toLocaleTimeString() : 'Earlier'}
                 </span>
               </div>
@@ -150,8 +171,8 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
                 </span>
               </div>
               <div className="detail-row">
-                <span className="detail-label">Ticket Code:</span>
-                <span className="detail-value font-mono">{result.ticket_code}</span>
+                <span className="detail-label">{t('tickets.code_label', 'Ticket Code:')}</span>
+                <span className="detail-value font-mono" dir="ltr">{result.ticket_code}</span>
               </div>
             </div>
           )}
@@ -170,7 +191,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
               {result.ticket_code && (
                 <div className="detail-row font-mono">
                   <span className="detail-label">Suspect Code:</span>
-                  <span className="detail-value">{result.ticket_code}</span>
+                  <span className="detail-value" dir="ltr">{result.ticket_code}</span>
                 </div>
               )}
             </div>
@@ -189,7 +210,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
               {result.ticket_event_id && (
                 <div className="detail-row">
                   <span className="detail-label">Ticket Event:</span>
-                  <span className="detail-value font-mono">{result.ticket_event_id}</span>
+                  <span className="detail-value font-mono" dir="ltr">{result.ticket_event_id}</span>
                 </div>
               )}
             </div>
@@ -208,7 +229,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
               {result.ticket_code && (
                 <div className="detail-row font-mono">
                   <span className="detail-label">Code:</span>
-                  <span className="detail-value">{result.ticket_code}</span>
+                  <span className="detail-value" dir="ltr">{result.ticket_code}</span>
                 </div>
               )}
             </div>
@@ -223,7 +244,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
               {result.ticket_code && (
                 <div className="detail-row font-mono">
                   <span className="detail-label">Code:</span>
-                  <span className="detail-value">{result.ticket_code}</span>
+                  <span className="detail-value" dir="ltr">{result.ticket_code}</span>
                 </div>
               )}
             </div>
@@ -241,7 +262,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay }) {
             onClick={onClose}
             data-testid="btn-dismiss-result"
           >
-            {theme.btnLabel}
+            {getLocalizedBtnLabel()}
           </button>
         </div>
       </div>

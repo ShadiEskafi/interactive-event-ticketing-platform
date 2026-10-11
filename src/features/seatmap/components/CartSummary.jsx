@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { formatCurrency } from '../utils/formatters';
+import { useLanguage } from '../../../context';
 
 /**
  * Live Cart Summary Component
@@ -14,6 +15,7 @@ export function CartSummary({
   onDeselectSeat,
   onCheckout,
 }) {
+  const { t } = useLanguage();
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
   const seatCount = selectedSeats.length;
 
@@ -40,10 +42,18 @@ export function CartSummary({
     .map(([tier, count]) => `${tier} (${count})`)
     .join(', ');
 
+  const getTierName = (tier) => {
+    const lower = (tier || '').toLowerCase();
+    if (lower.includes('vip')) return t('seatmap.vip', 'كبار الشخصيات');
+    if (lower.includes('balcony')) return t('seatmap.balcony', 'شرفة');
+    if (lower.includes('regular') || lower.includes('standard')) return t('seatmap.regular', 'عادي');
+    return tier;
+  };
+
   return (
     <aside
       className={`cart-summary ${isMobileExpanded ? 'mobile-expanded' : 'mobile-collapsed'}`}
-      aria-label="Order Cart Summary"
+      aria-label={t('cart.title', 'Order Cart Summary')}
     >
       {/* Mobile Bottom Sheet Handle Bar */}
       <div
@@ -51,7 +61,7 @@ export function CartSummary({
         onClick={() => seatCount > 0 && setIsMobileExpanded((prev) => !prev)}
         role="button"
         tabIndex={0}
-        aria-label={isMobileExpanded ? 'Collapse seats bottom sheet' : 'Expand seats bottom sheet'}
+        aria-label={isMobileExpanded ? t('cart.hide_seats', 'Collapse seats bottom sheet') : t('cart.view_seats', 'Expand seats bottom sheet')}
         aria-expanded={isMobileExpanded}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -68,7 +78,7 @@ export function CartSummary({
         onClick={() => seatCount > 0 && setIsMobileExpanded((prev) => !prev)}
       >
         <div className="cart-header-title-wrap">
-          <h2 className="cart-title">Your Selection</h2>
+          <h2 className="cart-title">{t('cart.your_selection', 'Your Selection')}</h2>
           <span className="cart-badge" data-testid="cart-seat-count">
             {seatCount}
           </span>
@@ -84,7 +94,7 @@ export function CartSummary({
               setIsMobileExpanded((prev) => !prev);
             }}
           >
-            {isMobileExpanded ? '▼ Hide' : '▲ View Seats'}
+            {isMobileExpanded ? t('cart.hide_seats', '▼ Hide') : t('cart.view_seats', '▲ View Seats')}
           </button>
         )}
       </div>
@@ -92,7 +102,7 @@ export function CartSummary({
       <div className="cart-content">
         {seatCount === 0 ? (
           <p className="cart-empty-message">
-            No seats selected yet. Click available seats on the map to add them to your cart.
+            {t('cart.empty', 'No seats selected yet. Click available seats on the map to add them to your cart.')}
           </p>
         ) : (
           <>
@@ -104,16 +114,18 @@ export function CartSummary({
                   data-testid={`selected-seat-${seat.id}`}
                 >
                   <div className="seat-item-info">
-                    <span className="seat-item-code">Seat {seat.rowLabel}-{seat.seatNumber}</span>
-                    <span className="seat-item-category">{seat.category}</span>
+                    <span className="seat-item-code">
+                      {t('seatmap.seat', 'Seat')} {seat.rowLabel}-{seat.seatNumber}
+                    </span>
+                    <span className="seat-item-category">{getTierName(seat.category)}</span>
                   </div>
                   <div className="seat-item-pricing">
-                    <span className="seat-item-price">{formatCurrency(seat.price)}</span>
+                    <span className="seat-item-price" dir="ltr">{formatCurrency(seat.price)}</span>
                     {onDeselectSeat && (
                       <button
                         type="button"
                         className="btn-remove-seat"
-                        aria-label={`Remove seat ${seat.rowLabel}-${seat.seatNumber}`}
+                        aria-label={`${t('cart.remove_seat', 'Remove seat')} ${seat.rowLabel}-${seat.seatNumber}`}
                         onClick={() => onDeselectSeat(seat)}
                       >
                         &times;
@@ -126,7 +138,7 @@ export function CartSummary({
 
             {tierBreakdownText && (
               <div className="cart-tier-breakdown">
-                <span className="tier-breakdown-label">Tier Breakdown:</span>
+                <span className="tier-breakdown-label">{t('seatmap.tiers_title', 'Tiers:')}</span>
                 <span className="tier-breakdown-value">{tierBreakdownText}</span>
               </div>
             )}
@@ -134,12 +146,14 @@ export function CartSummary({
             <div className="cart-divider" />
 
             <div className="cart-subtotal-row">
-              <span className="subtotal-label">Subtotal</span>
-              <span className="subtotal-amount" data-testid="cart-subtotal">
+              <span className="subtotal-label">{t('cart.subtotal', 'Subtotal')}</span>
+              <span className="subtotal-amount" data-testid="cart-subtotal" dir="ltr">
                 {formatCurrency(subtotal)}
               </span>
             </div>
-            <p className="cart-tax-notice">Taxes and service fees calculated at checkout</p>
+            <p className="cart-tax-notice">
+              {t('checkout.tax_notice', 'Taxes and service fees calculated at checkout')}
+            </p>
           </>
         )}
       </div>
@@ -149,14 +163,14 @@ export function CartSummary({
           type="button"
           className="btn-checkout"
           disabled={seatCount === 0}
-          aria-label="Proceed to Checkout"
+          aria-label={t('cart.proceed', 'Proceed to Checkout')}
           onClick={onCheckout}
         >
-          Proceed to Checkout
+          {t('cart.proceed', 'Proceed to Checkout')}
         </button>
         {seatCount > 0 && (
           <p className="cart-limit-notice">
-            {seatCount}/5 seats selected
+            {seatCount}/5 {t('cart.seats_count', 'seats selected')}
           </p>
         )}
       </div>

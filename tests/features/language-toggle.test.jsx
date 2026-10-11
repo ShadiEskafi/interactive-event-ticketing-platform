@@ -5,27 +5,43 @@ import { LanguageProvider, useLanguage, LANGUAGE_STORAGE_KEY } from '../../src/c
 import { AuthProvider } from '../../src/features/auth';
 import { MockAuthService } from '../mocks/mockAuthService';
 
-describe('Bilingual Localization & RTL Support (TicketCraft MVP)', () => {
+describe('Bilingual Localization & RTL Support (TicketCraft MVP - Arabic Default)', () => {
   let mockAuth;
 
   beforeEach(() => {
     mockAuth = new MockAuthService(null);
     window.sessionStorage.clear();
     window.localStorage.clear();
-    document.documentElement.lang = 'en';
-    document.documentElement.dir = 'ltr';
+    document.documentElement.lang = 'ar';
+    document.documentElement.dir = 'rtl';
   });
 
   afterEach(() => {
-    document.documentElement.lang = 'en';
-    document.documentElement.dir = 'ltr';
+    document.documentElement.lang = 'ar';
+    document.documentElement.dir = 'rtl';
     window.localStorage.clear();
   });
 
   describe('Core LanguageContext & Root Document Attributes', () => {
-    it('defaults to English with LTR direction and synchronizes documentElement', () => {
+    it('defaults to Arabic with RTL direction and synchronizes documentElement', () => {
       const { result } = renderHook(() => useLanguage(), {
         wrapper: ({ children }) => <LanguageProvider>{children}</LanguageProvider>,
+      });
+
+      expect(result.current.language).toBe('ar');
+      expect(result.current.dir).toBe('rtl');
+      expect(result.current.isRtl).toBe(true);
+      expect(document.documentElement.lang).toBe('ar');
+      expect(document.documentElement.dir).toBe('rtl');
+    });
+
+    it('toggles to English and updates documentElement lang to "en" and dir to "ltr"', () => {
+      const { result } = renderHook(() => useLanguage(), {
+        wrapper: ({ children }) => <LanguageProvider>{children}</LanguageProvider>,
+      });
+
+      act(() => {
+        result.current.toggleLanguage();
       });
 
       expect(result.current.language).toBe('en');
@@ -33,12 +49,6 @@ describe('Bilingual Localization & RTL Support (TicketCraft MVP)', () => {
       expect(result.current.isRtl).toBe(false);
       expect(document.documentElement.lang).toBe('en');
       expect(document.documentElement.dir).toBe('ltr');
-    });
-
-    it('toggles to Arabic and updates documentElement lang to "ar" and dir to "rtl"', () => {
-      const { result } = renderHook(() => useLanguage(), {
-        wrapper: ({ children }) => <LanguageProvider>{children}</LanguageProvider>,
-      });
 
       act(() => {
         result.current.toggleLanguage();
@@ -49,40 +59,30 @@ describe('Bilingual Localization & RTL Support (TicketCraft MVP)', () => {
       expect(result.current.isRtl).toBe(true);
       expect(document.documentElement.lang).toBe('ar');
       expect(document.documentElement.dir).toBe('rtl');
-
-      act(() => {
-        result.current.toggleLanguage();
-      });
-
-      expect(result.current.language).toBe('en');
-      expect(result.current.dir).toBe('ltr');
-      expect(result.current.isRtl).toBe(false);
-      expect(document.documentElement.lang).toBe('en');
-      expect(document.documentElement.dir).toBe('ltr');
     });
 
     it('persists language selection in localStorage across page reloads', () => {
-      // 1. Initial mount and toggle to Arabic
+      // 1. Initial mount and toggle to English
       const { result, unmount } = renderHook(() => useLanguage(), {
         wrapper: ({ children }) => <LanguageProvider>{children}</LanguageProvider>,
       });
 
       act(() => {
-        result.current.setLanguage('ar');
+        result.current.setLanguage('en');
       });
 
-      expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('ar');
+      expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('en');
       unmount();
 
-      // 2. Next mount: reads 'ar' from localStorage
+      // 2. Next mount: reads 'en' from localStorage
       const { result: reloadedResult } = renderHook(() => useLanguage(), {
         wrapper: ({ children }) => <LanguageProvider>{children}</LanguageProvider>,
       });
 
-      expect(reloadedResult.current.language).toBe('ar');
-      expect(reloadedResult.current.dir).toBe('rtl');
-      expect(document.documentElement.lang).toBe('ar');
-      expect(document.documentElement.dir).toBe('rtl');
+      expect(reloadedResult.current.language).toBe('en');
+      expect(reloadedResult.current.dir).toBe('ltr');
+      expect(document.documentElement.lang).toBe('en');
+      expect(document.documentElement.dir).toBe('ltr');
     });
 
     it('provides graceful fallback when useLanguage is invoked outside LanguageProvider', () => {
@@ -96,7 +96,7 @@ describe('Bilingual Localization & RTL Support (TicketCraft MVP)', () => {
   });
 
   describe('Navbar Language Switcher & Full Platform Translation', () => {
-    it('renders language toggle button in MainNavbar and toggles language between English and Arabic', () => {
+    it('renders language toggle button in MainNavbar and toggles language between Arabic and English', () => {
       render(
         <LanguageProvider>
           <AuthProvider customAuthService={mockAuth}>
@@ -107,26 +107,19 @@ describe('Bilingual Localization & RTL Support (TicketCraft MVP)', () => {
 
       const toggleBtn = screen.getByTestId('language-toggle-btn');
       expect(toggleBtn).toBeInTheDocument();
-      // Initially in English, shows option to switch to Arabic: "العربية"
-      expect(toggleBtn).toHaveTextContent('العربية');
-
-      // Click to toggle to Arabic
-      fireEvent.click(toggleBtn);
-
-      // Now in Arabic, button offers to switch back to English: "English"
+      // Initially in Arabic, button offers to switch to English: "English"
       expect(toggleBtn).toHaveTextContent('English');
-      expect(document.documentElement.dir).toBe('rtl');
-      expect(document.documentElement.lang).toBe('ar');
 
-      // Center nav links reflect Arabic translations
+      // Center nav links reflect Arabic translations by default
       expect(screen.getByTestId('nav-link-home')).toHaveTextContent('الرئيسية');
       expect(screen.getByTestId('nav-link-events')).toHaveTextContent('الفعاليات المميزة');
       expect(screen.getByTestId('nav-link-my-tickets')).toHaveTextContent('تذاكري');
       expect(screen.getByTestId('user-guest-badge')).toHaveTextContent('زائر');
 
-      // Click again to toggle back to English
+      // Click to toggle to English
       fireEvent.click(toggleBtn);
 
+      // Now in English, button offers to switch back to Arabic: "العربية"
       expect(toggleBtn).toHaveTextContent('العربية');
       expect(document.documentElement.dir).toBe('ltr');
       expect(document.documentElement.lang).toBe('en');
@@ -135,9 +128,16 @@ describe('Bilingual Localization & RTL Support (TicketCraft MVP)', () => {
       expect(screen.getByTestId('nav-link-events')).toHaveTextContent('Featured Events');
       expect(screen.getByTestId('nav-link-my-tickets')).toHaveTextContent('My Tickets');
       expect(screen.getByTestId('user-guest-badge')).toHaveTextContent('Guest');
+
+      // Click again to toggle back to Arabic
+      fireEvent.click(toggleBtn);
+
+      expect(toggleBtn).toHaveTextContent('English');
+      expect(document.documentElement.dir).toBe('rtl');
+      expect(document.documentElement.lang).toBe('ar');
     });
 
-    it('translates Landing Page hero, metrics, filters, events, and Why section into Arabic', () => {
+    it('translates Landing Page hero, metrics, filters, events, and Why section into Arabic with 1-2-3 numerals', () => {
       render(
         <LanguageProvider initialLanguage="ar">
           <AuthProvider customAuthService={mockAuth}>
@@ -153,8 +153,8 @@ describe('Bilingual Localization & RTL Support (TicketCraft MVP)', () => {
         })
       ).toBeInTheDocument();
 
-      // Verify Arabic metric pills
-      expect(screen.getByTestId('metric-pill-seats')).toHaveTextContent('٥٢٠');
+      // Verify Arabic metric pills with Western numerals (1-2-3 per user preference)
+      expect(screen.getByTestId('metric-pill-seats')).toHaveTextContent('520');
       expect(screen.getByTestId('metric-pill-seats')).toHaveTextContent('مقعداً فورياً');
       expect(screen.getByTestId('metric-pill-lock')).toHaveTextContent('حجز ذري مؤكد');
 
@@ -170,7 +170,7 @@ describe('Bilingual Localization & RTL Support (TicketCraft MVP)', () => {
       // Verify "Why TicketCraft?" in Arabic
       expect(screen.getByText('لماذا تيكت كرافت؟')).toBeInTheDocument();
       expect(
-        screen.getByText('محرك SVG للتكبير والتحريك بـ ٦٠ إطاراً/ثانية')
+        screen.getByText('محرك SVG للتكبير والتحريك بـ 60 إطاراً/ثانية')
       ).toBeInTheDocument();
     });
 
