@@ -26,6 +26,7 @@ export function HoldCheckoutView({
     cardNumber: '•••• •••• •••• 4242',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
 
   // Tab closure & sudden navigation guard (beacon / beforeunload safe release)
   useHoldLifecycle({
@@ -41,6 +42,7 @@ export function HoldCheckoutView({
     e.preventDefault();
     if (isExpired || isSubmitting) return;
 
+    setPaymentError(null);
     setIsSubmitting(true);
     try {
       const seatIds = selectedSeats.map((s) => s.id);
@@ -54,11 +56,14 @@ export function HoldCheckoutView({
         paymentDetails: { cardNumber: formData.cardNumber },
       });
 
-      if (onPaymentSuccess) {
+      if (result?.success && onPaymentSuccess) {
         onPaymentSuccess(result);
+      } else if (!result?.success) {
+        setPaymentError(result?.message || 'Failed to complete booking with database.');
       }
     } catch (err) {
       console.error('Failed to confirm booking:', err);
+      setPaymentError(err.message || 'Payment error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -84,6 +89,11 @@ export function HoldCheckoutView({
       <div className="checkout-main-grid">
         {/* Payment & Attendee Form */}
         <section className="checkout-form-section" aria-label="Payment Information" data-testid="checkout-step-payment">
+          {paymentError && (
+            <div className="payment-error-alert" role="alert" style={{ background: '#FEE2E2', color: '#991B1B', padding: '0.75rem 1rem', borderRadius: '6px', marginBottom: '1rem', border: '1px solid #F87171' }}>
+              {paymentError}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="checkout-form">
             <div className="form-group">
               <label htmlFor="attendee-name">Full Name</label>

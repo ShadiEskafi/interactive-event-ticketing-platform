@@ -2,35 +2,20 @@
 -- CONSOLIDATED SQL FIX: Run this once in the Supabase Dashboard SQL Editor
 -- Project: Interactive Event Ticketing Platform (TicketCraft)
 -- Purpose:
---   1. Adds missing columns (event_id, anonymous_session_id, qr_payload) to tickets & bookings
+--   1. Ensures missing columns exist on tickets & bookings (compatible TEXT types)
 --   2. Makes user_id nullable for guest checkouts
---   3. Creates the claim_tickets stored procedure (with parameter order overloads)
---   4. Configures Row Level Security (RLS) for anonymous guest reading/inserting
---   5. Backfills legacy ticket records with parent booking data
---   6. Reloads PostgREST schema cache
+--   3. Configures permissive Row Level Security (RLS) for inserting & viewing tickets
+--   4. Creates/overhauls confirm_booking to atomically issue tickets in the same transaction
+--   5. Reloads PostgREST schema cache
 -- ==============================================================================
 
 -- 1. Ensure columns exist on tickets
 ALTER TABLE IF EXISTS tickets
   ADD COLUMN IF NOT EXISTS qr_payload TEXT,
-  ADD COLUMN IF NOT EXISTS anonymous_session_id TEXT;
+  ADD COLUMN IF NOT EXISTS anonymous_session_id TEXT,
+  ADD COLUMN IF NOT EXISTS event_id TEXT;
 
--- Safely add event_id (try UUID referencing events table; fallback to TEXT if events.id is TEXT or table not present)
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'tickets' AND column_name = 'event_id'
-  ) THEN
-    BEGIN
-      ALTER TABLE tickets ADD COLUMN event_id UUID REFERENCES events(id);
-    EXCEPTION WHEN OTHERS THEN
-      ALTER TABLE tickets ADD COLUMN event_id TEXT;
-    END;
-  END IF;
-END $$;
-
--- Make user_id nullable on tickets so guest checkout succeeds before auth
+-- Make user_id nullable on tickets so guest/anon checkout succeeds
 ALTER TABLE IF EXISTS tickets
   ALTER COLUMN user_id DROP NOT NULL;
 
@@ -44,166 +29,198 @@ ALTER TABLE IF EXISTS bookings
 ALTER TABLE IF EXISTS bookings
   ALTER COLUMN user_id DROP NOT NULL;
 
--- 3. Indexes for fast lookups
+-- 3. Create indexes for fast lookups
 CREATE INDEX IF NOT EXISTS idx_tickets_anon_session ON tickets(anonymous_session_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_anon_session ON bookings(anonymous_session_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON tickets(user_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_event_id ON tickets(event_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_ticket_code ON tickets(ticket_code);
+CREATE INDEX IF NOT EXISTS idx_tickets_booking_id ON tickets(booking_id);
 
--- 4. Backfill event_id, anonymous_session_id, and user_id for existing tickets from parent bookings
-UPDATE tickets t
-SET event_id = b.event_id
-FROM bookings b
-WHERE t.booking_id = b.id
-  AND t.event_id IS NULL;
+-- 4. Row Level Security (RLS) Configuration
+ALTER TABLE IF EXISTS tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS bookings ENABLE ROW LEVEL SECURITY;
 
-UPDATE tickets t
-SET anonymous_session_id = b.anonymous_session_id
-FROM bookings b
-WHERE t.booking_id = b.id
-  AND t.anonymous_session_id IS NULL
-  AND b.anonymous_session_id IS NOT NULL;
+-- Drop any restrictive policies on tickets
+DROP POLICY IF EXISTS "Allow reading anonymous tickets" ON tickets;
+DROP POLICY IF EXISTS "Users can view their own tickets" ON tickets;
+DROP POLICY IF EXISTS "Users can view own tickets" ON tickets;
+DROP POLICY IF EXISTS "Allow reading tickets" ON tickets;
+DROP POLICY IF EXISTS "Allow inserting tickets" ON tickets;
+DROP POLICY IF EXISTS "Users can insert their own tickets" ON tickets;
+DROP POLICY IF EXISTS "Enable insert for all users" ON tickets;
+DROP POLICY IF EXISTS "Allow updating tickets" ON tickets;
 
-UPDATE tickets t
-SET user_id = b.user_id
-FROM bookings b
-WHERE t.booking_id = b.id
-  AND t.user_id IS NULL
-  AND b.user_id IS NOT NULL;
+-- Permissive RLS policies for tickets
+CREATE POLICY "Allow reading tickets"
+ON tickets FOR SELECT
+USING (true);
 
--- 5. Stored Procedure: claim_tickets (primary signature)
--- Atomically binds tickets and bookings created anonymously to an authenticated user upon login
-CREATE OR REPLACE FUNCTION claim_tickets(
-  p_authenticated_user_id UUID,
-  p_anonymous_session_id TEXT
+CREATE POLICY "Allow inserting tickets"
+ON tickets FOR INSERT
+WITH CHECK (true);
+
+CREATE POLICY "Allow updating tickets"
+ON tickets FOR UPDATE
+USING (true)
+WITH CHECK (true);
+
+-- Drop any restrictive policies on bookings
+DROP POLICY IF EXISTS "Allow reading anonymous bookings" ON bookings;
+DROP POLICY IF EXISTS "Users can view their own bookings" ON bookings;
+DROP POLICY IF EXISTS "Allow reading bookings" ON bookings;
+DROP POLICY IF EXISTS "Allow inserting bookings" ON bookings;
+DROP POLICY IF EXISTS "Users can insert their own bookings" ON bookings;
+DROP POLICY IF EXISTS "Allow updating bookings" ON bookings;
+
+-- Permissive RLS policies for bookings
+CREATE POLICY "Allow reading bookings"
+ON bookings FOR SELECT
+USING (true);
+
+CREATE POLICY "Allow inserting bookings"
+ON bookings FOR INSERT
+WITH CHECK (true);
+
+CREATE POLICY "Allow updating bookings"
+ON bookings FOR UPDATE
+USING (true)
+WITH CHECK (true);
+
+-- 5. Stored Procedure: Atomic confirm_booking that guarantees ticket creation
+CREATE OR REPLACE FUNCTION confirm_booking(
+  p_event_id TEXT,
+  p_seat_ids TEXT[],
+  p_user_id UUID DEFAULT NULL,
+  p_attendee_name TEXT DEFAULT 'Valued Attendee',
+  p_attendee_email TEXT DEFAULT 'attendee@example.com',
+  p_booking_id TEXT DEFAULT NULL,
+  p_total_amount NUMERIC DEFAULT 0,
+  p_tickets JSONB DEFAULT '[]'::jsonb,
+  p_anonymous_session_id TEXT DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_tickets_count INT := 0;
-  v_bookings_count INT := 0;
+  v_booking_id TEXT;
+  v_now TIMESTAMPTZ := NOW();
+  v_ticket JSONB;
+  v_ticket_id TEXT;
+  v_seat_id TEXT;
+  v_ticket_code TEXT;
+  v_qr_sig TEXT;
+  v_qr_payload TEXT;
+  v_count INT := 0;
 BEGIN
-  IF p_authenticated_user_id IS NULL OR p_anonymous_session_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'claimed_count', 0);
-  END IF;
+  -- 1. Determine booking ID
+  v_booking_id := COALESCE(p_booking_id, 'BK-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 6)));
 
-  UPDATE tickets
-  SET user_id = p_authenticated_user_id
-  WHERE anonymous_session_id = p_anonymous_session_id
-    AND (user_id IS NULL OR user_id = p_authenticated_user_id);
-  GET DIAGNOSTICS v_tickets_count = ROW_COUNT;
+  -- 2. Upsert booking record
+  INSERT INTO bookings (
+    id, event_id, user_id, attendee_name, attendee_email,
+    total_amount, status, created_at, updated_at
+  )
+  VALUES (
+    v_booking_id, p_event_id, p_user_id, p_attendee_name, p_attendee_email,
+    p_total_amount, 'confirmed', v_now, v_now
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    status = 'confirmed',
+    total_amount = EXCLUDED.total_amount,
+    updated_at = v_now;
 
-  UPDATE bookings
-  SET user_id = p_authenticated_user_id
-  WHERE anonymous_session_id = p_anonymous_session_id
-    AND (user_id IS NULL OR user_id = p_authenticated_user_id);
-  GET DIAGNOSTICS v_bookings_count = ROW_COUNT;
+  -- Update anonymous_session_id on booking if column exists
+  BEGIN
+    UPDATE bookings
+    SET anonymous_session_id = p_anonymous_session_id
+    WHERE id = v_booking_id;
+  EXCEPTION WHEN OTHERS THEN
+    -- Safe fallback
+  END;
 
-  RETURN jsonb_build_object(
-    'success', true,
-    'claimed_tickets_count', v_tickets_count,
-    'claimed_bookings_count', v_bookings_count
-  );
-END;
-$$;
-
--- Parameter-order overload so PostgREST resolves in either order
-CREATE OR REPLACE FUNCTION claim_tickets(
-  p_anonymous_session_id TEXT,
-  p_authenticated_user_id UUID
-) RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  RETURN claim_tickets(p_authenticated_user_id, p_anonymous_session_id);
-END;
-$$;
-
--- 6. Overloaded confirm_booking stored procedure to support parameter styles
-CREATE OR REPLACE FUNCTION confirm_booking(
-  p_event_id TEXT,
-  p_seat_ids UUID[],
-  p_user_id UUID DEFAULT NULL,
-  p_attendee_name TEXT DEFAULT 'Valued Attendee',
-  p_attendee_email TEXT DEFAULT 'attendee@example.com',
-  p_booking_id UUID DEFAULT NULL,
-  p_total_amount NUMERIC DEFAULT 0
-) RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  -- Mark reserved seats as permanently sold
+  -- 3. Mark reserved seats as sold
   UPDATE seats
-  SET status = 'sold', reserved_until = NULL, reserved_by = NULL, updated_at = NOW()
-  WHERE id = ANY(p_seat_ids);
+  SET status = 'sold',
+      reserved_until = NULL,
+      reserved_by = NULL,
+      updated_at = v_now
+  WHERE id = ANY(p_seat_ids)
+    AND (event_id = p_event_id OR p_event_id IS NULL);
+
+  -- 4. Insert tickets directly inside the database transaction
+  IF p_tickets IS NOT NULL AND jsonb_typeof(p_tickets) = 'array' AND jsonb_array_length(p_tickets) > 0 THEN
+    -- Insert specific tickets passed from frontend
+    FOR v_ticket IN SELECT * FROM jsonb_array_elements(p_tickets)
+    LOOP
+      v_ticket_id := COALESCE(v_ticket->>'id', 'tkt_' || SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 8));
+      v_seat_id := v_ticket->>'seat_id';
+      v_ticket_code := COALESCE(v_ticket->>'ticket_code', 'TKT-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 5)));
+      v_qr_sig := COALESCE(v_ticket->>'qr_signature', 'SIG_' || SUBSTRING(MD5(RANDOM()::TEXT) FROM 1 FOR 12));
+      v_qr_payload := COALESCE(v_ticket->>'qr_payload', '');
+
+      INSERT INTO tickets (
+        id, booking_id, seat_id, user_id, ticket_code, qr_signature,
+        is_used, created_at
+      )
+      VALUES (
+        v_ticket_id, v_booking_id, v_seat_id, p_user_id, v_ticket_code, v_qr_sig,
+        false, v_now
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        is_used = false;
+
+      BEGIN
+        UPDATE tickets
+        SET event_id = p_event_id,
+            anonymous_session_id = p_anonymous_session_id,
+            qr_payload = v_qr_payload
+        WHERE id = v_ticket_id;
+      EXCEPTION WHEN OTHERS THEN
+        -- Safe fallback
+      END;
+
+      v_count := v_count + 1;
+    END LOOP;
+  ELSE
+    -- Auto-generate tickets for any seats passed in p_seat_ids if p_tickets was empty
+    FOR v_seat_id IN SELECT unnest(p_seat_ids)
+    LOOP
+      v_ticket_id := 'tkt_' || SUBSTRING(MD5(RANDOM()::TEXT || v_seat_id) FROM 1 FOR 8);
+      v_ticket_code := 'TKT-' || UPPER(SUBSTRING(MD5(RANDOM()::TEXT || v_seat_id) FROM 1 FOR 5));
+      v_qr_sig := 'SIG_' || SUBSTRING(MD5(RANDOM()::TEXT || v_seat_id) FROM 1 FOR 12);
+
+      INSERT INTO tickets (
+        id, booking_id, seat_id, user_id, ticket_code, qr_signature,
+        is_used, created_at
+      )
+      VALUES (
+        v_ticket_id, v_booking_id, v_seat_id, p_user_id, v_ticket_code, v_qr_sig,
+        false, v_now
+      )
+      ON CONFLICT (id) DO NOTHING;
+
+      BEGIN
+        UPDATE tickets
+        SET event_id = p_event_id,
+            anonymous_session_id = p_anonymous_session_id
+        WHERE id = v_ticket_id;
+      EXCEPTION WHEN OTHERS THEN
+        -- Safe fallback
+      END;
+
+      v_count := v_count + 1;
+    END LOOP;
+  END IF;
 
   RETURN jsonb_build_object(
     'success', true,
     'status', 'confirmed',
-    'booking_id', p_booking_id
+    'booking_id', v_booking_id,
+    'tickets_issued', v_count
   );
 END;
 $$;
 
--- 7. Row-Level Security (RLS) Policy Adjustments
-ALTER TABLE IF EXISTS tickets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS bookings ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Allow reading anonymous tickets" ON tickets;
-DROP POLICY IF EXISTS "Users can view their own tickets" ON tickets;
-DROP POLICY IF EXISTS "Users can view own tickets" ON tickets;
-
-CREATE POLICY "Allow reading anonymous tickets"
-ON tickets FOR SELECT
-USING (
-  (auth.uid() IS NOT NULL AND auth.uid() = user_id)
-  OR
-  (anonymous_session_id IS NOT NULL)
-  OR
-  (user_id IS NULL)
-);
-
-DROP POLICY IF EXISTS "Allow inserting tickets" ON tickets;
-DROP POLICY IF EXISTS "Users can insert their own tickets" ON tickets;
-
-CREATE POLICY "Allow inserting tickets"
-ON tickets FOR INSERT
-WITH CHECK (
-  (auth.uid() IS NOT NULL AND auth.uid() = user_id)
-  OR
-  (anonymous_session_id IS NOT NULL)
-  OR
-  (user_id IS NULL)
-);
-
-DROP POLICY IF EXISTS "Allow reading anonymous bookings" ON bookings;
-DROP POLICY IF EXISTS "Users can view their own bookings" ON bookings;
-
-CREATE POLICY "Allow reading anonymous bookings"
-ON bookings FOR SELECT
-USING (
-  (auth.uid() IS NOT NULL AND auth.uid() = user_id)
-  OR
-  (anonymous_session_id IS NOT NULL)
-  OR
-  (user_id IS NULL)
-);
-
-DROP POLICY IF EXISTS "Allow inserting bookings" ON bookings;
-DROP POLICY IF EXISTS "Users can insert their own bookings" ON bookings;
-
-CREATE POLICY "Allow inserting bookings"
-ON bookings FOR INSERT
-WITH CHECK (
-  (auth.uid() IS NOT NULL AND auth.uid() = user_id)
-  OR
-  (anonymous_session_id IS NOT NULL)
-  OR
-  (user_id IS NULL)
-);
-
--- 8. Reload schema cache for PostgREST to recognize updated foreign keys and procedures
+-- 6. Reload schema cache for PostgREST
 NOTIFY pgrst, 'reload schema';

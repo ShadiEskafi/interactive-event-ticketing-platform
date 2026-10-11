@@ -25,9 +25,12 @@ export function PaymentStep({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [paymentError, setPaymentError] = useState(null);
+
   const handleSubmit = async (e) => {
     if (e?.preventDefault) e.preventDefault();
     if (isExpired || isSubmitting) return;
+    setPaymentError(null);
     setIsSubmitting(true);
     try {
       const seatIds = selectedSeats.map((s) => s.id);
@@ -56,11 +59,14 @@ export function PaymentStep({
         paymentDetails: { cardNumber: formData.cardNumber },
       });
 
-      if (onPaymentSuccess) {
+      if (result?.success && onPaymentSuccess) {
         onPaymentSuccess(result);
+      } else if (!result?.success) {
+        setPaymentError(result?.message || 'Failed to complete booking with database.');
       }
     } catch (err) {
       console.error('Payment error:', err);
+      setPaymentError(err.message || 'Payment error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -83,6 +89,11 @@ export function PaymentStep({
       <div className="payment-grid">
         {/* Attendee & Payment Form */}
         <section className="payment-form-card" aria-label="Payment Form">
+          {paymentError && (
+            <div className="payment-error-alert" role="alert" style={{ background: '#FEE2E2', color: '#991B1B', padding: '0.75rem 1rem', borderRadius: '6px', marginBottom: '1rem', border: '1px solid #F87171' }}>
+              {paymentError}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="payment-form">
             <div className="form-group">
               <label htmlFor="attendee-name">Attendee Name</label>
