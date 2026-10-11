@@ -4,11 +4,14 @@
   inset: 0;
   background-color: rgba(15, 23, 42, 0.75);
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+  box-sizing: border-box;
   animation: fadeInBackdrop 0.2s ease-out;
 }
 
@@ -26,10 +29,12 @@
   border: 1px solid #334155;
   border-radius: 1rem;
   width: 100%;
-  max-width: 440px;
+  max-width: min(95vw, 32rem);
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   color: #f8fafc;
-  overflow: hidden;
+  box-sizing: border-box;
   animation: modalScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

@@ -28,14 +28,14 @@ export function GateSelectorModal({ isOpen, onClose, currentGate, onSelectGate }
 
   return (
     <div
-      className="gate-selector-backdrop"
+      className="gate-selector-backdrop p-4 sm:p-6 flex items-center justify-center"
       data-testid="gate-selector-modal"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="gate-selector-title"
     >
-      <div className="gate-selector-card" onClick={(e) => e.stopPropagation()}>
+      <div className="gate-selector-card w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-icon-badge">🚪</div>
           <div>

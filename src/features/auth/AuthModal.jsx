@@ -78,7 +78,7 @@ export function AuthModal({
 
   return (
     <div
-      className="auth-modal-backdrop"
+      className="auth-modal-backdrop p-4 sm:p-6 flex items-center justify-center"
       data-testid="auth-modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isExpired && !isSubmitting && onClose) {
@@ -91,7 +91,7 @@ export function AuthModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-modal-title"
-        className="auth-modal-container"
+        className="auth-modal-container w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl"
         data-testid="auth-modal"
       >
         {/* Top Header with Title and Hold Countdown Badge */}

@@ -3,7 +3,7 @@ export { MyTicketsPage } from './MyTicketsPage';
 export { TicketDashboard } from './TicketDashboard';
 export { TicketPassView } from './components/TicketPassView';
 export { QRCodeDisplay } from './components/QRCodeDisplay';
-export { FullScreenQRModal } from './components/FullScreenQRModal';
+export { FullScreenQRModal, PassModal } from './components/FullScreenQRModal';
 export { TicketCard } from './components/TicketCard';
 export { EventTicketGroup } from './components/EventTicketGroup';
 export { TicketExportActions } from './components/TicketExportActions';

@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { formatCurrency } from '../utils/formatters';
 
 /**
  * Live Cart Summary Component
  * Displays selected seat count, itemized tier breakdown, subtotal, and checkout CTA.
  * Dynamically computes seatCount, subtotal, and tierSummary directly from selectedSeats.
+ * On mobile (< 768px), adapts as an expandable bottom sheet / sticky bottom bar.
  */
 export function CartSummary({
   selectedSeats = [],
@@ -13,6 +14,7 @@ export function CartSummary({
   onDeselectSeat,
   onCheckout,
 }) {
+  const [isMobileExpanded, setIsMobileExpanded] = useState(false);
   const seatCount = selectedSeats.length;
 
   // Dynamically compute subtotal from selectedSeats
@@ -39,12 +41,52 @@ export function CartSummary({
     .join(', ');
 
   return (
-    <aside className="cart-summary" aria-label="Order Cart Summary">
-      <div className="cart-header">
-        <h2 className="cart-title">Your Selection</h2>
-        <span className="cart-badge" data-testid="cart-seat-count">
-          {seatCount}
-        </span>
+    <aside
+      className={`cart-summary ${isMobileExpanded ? 'mobile-expanded' : 'mobile-collapsed'}`}
+      aria-label="Order Cart Summary"
+    >
+      {/* Mobile Bottom Sheet Handle Bar */}
+      <div
+        className="mobile-sheet-handle-bar"
+        onClick={() => seatCount > 0 && setIsMobileExpanded((prev) => !prev)}
+        role="button"
+        tabIndex={0}
+        aria-label={isMobileExpanded ? 'Collapse seats bottom sheet' : 'Expand seats bottom sheet'}
+        aria-expanded={isMobileExpanded}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (seatCount > 0) setIsMobileExpanded((prev) => !prev);
+          }
+        }}
+      >
+        <span className="mobile-sheet-drag-pill" aria-hidden="true" />
+      </div>
+
+      <div
+        className="cart-header"
+        onClick={() => seatCount > 0 && setIsMobileExpanded((prev) => !prev)}
+      >
+        <div className="cart-header-title-wrap">
+          <h2 className="cart-title">Your Selection</h2>
+          <span className="cart-badge" data-testid="cart-seat-count">
+            {seatCount}
+          </span>
+        </div>
+
+        {seatCount > 0 && (
+          <button
+            type="button"
+            className="btn-mobile-sheet-toggle"
+            aria-label={isMobileExpanded ? 'Collapse selected seats' : 'Expand selected seats'}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMobileExpanded((prev) => !prev);
+            }}
+          >
+            {isMobileExpanded ? '▼ Hide' : '▲ View Seats'}
+          </button>
+        )}
       </div>
 
       <div className="cart-content">

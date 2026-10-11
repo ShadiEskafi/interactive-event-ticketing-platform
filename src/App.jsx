@@ -17,15 +17,18 @@ export function MainNavbar({
 }) {
   const { user, signOut } = useAuth();
   const { language, toggleLanguage, t } = useLanguage();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const currentView = activeView || (activeTab === 'events' ? 'booking' : activeTab) || 'landing';
 
   const handleSelectView = (view) => {
+    setIsMobileMenuOpen(false);
     if (onSelectView) onSelectView(view);
     if (onSelectTab) onSelectTab(view === 'landing' ? 'events' : view);
   };
 
   const handleFeaturedEventsClick = () => {
+    setIsMobileMenuOpen(false);
     if (onSelectFeaturedEvents) {
       onSelectFeaturedEvents();
     } else {
@@ -58,8 +61,11 @@ export function MainNavbar({
           </div>
         </div>
 
-        {/* Center Nav Links */}
-        <nav className="nav-center-links" aria-label="Main Navigation">
+        {/* Center Nav Links (Desktop & Mobile Drawer) */}
+        <nav
+          className={`nav-center-links ${isMobileMenuOpen ? 'mobile-open' : ''}`}
+          aria-label="Main Navigation"
+        >
           <button
             type="button"
             className={`nav-link-btn ${currentView === 'landing' ? 'active' : ''}`}
@@ -94,51 +100,83 @@ export function MainNavbar({
           </button>
         </nav>
 
-        <div className="navbar-user-section">
-          {/* Bilingual Language Switcher */}
+        <div className="navbar-actions-group">
+          <div className="navbar-user-section">
+            {/* Bilingual Language Switcher */}
+            <button
+              type="button"
+              className="nav-btn nav-btn-lang"
+              data-testid="language-toggle-btn"
+              onClick={toggleLanguage}
+              aria-label={t('navbar.lang_aria', language === 'en' ? 'Switch to Arabic' : 'Switch to English')}
+            >
+              <span className="lang-globe-icon" aria-hidden="true">🌐</span>
+              <span className="lang-text">{t('navbar.lang_toggle', language === 'en' ? 'العربية' : 'English')}</span>
+            </button>
+
+            {user ? (
+              <div className="nav-user-profile" data-testid="user-profile-badge">
+                <span className="user-avatar" aria-hidden="true">
+                  {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+                </span>
+                <span className="user-identity">
+                  {user.user_metadata?.full_name || user.email}
+                </span>
+                <button
+                  type="button"
+                  className="nav-btn nav-btn-signout"
+                  data-testid="btn-signout"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    signOut();
+                  }}
+                >
+                  {t('navbar.sign_out', 'Sign Out')}
+                </button>
+              </div>
+            ) : (
+              <div className="nav-guest-profile" data-testid="user-guest-badge">
+                <span className="guest-pill">{t('navbar.guest', 'Guest')}</span>
+                <button
+                  type="button"
+                  className="nav-btn nav-btn-signin"
+                  data-testid="btn-nav-signin"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    if (onOpenAuth) onOpenAuth();
+                  }}
+                >
+                  {t('navbar.sign_in', 'Sign In')}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Accessible Mobile Menu Toggle / Hamburger Button */}
           <button
             type="button"
-            className="nav-btn nav-btn-lang"
-            data-testid="language-toggle-btn"
-            onClick={toggleLanguage}
-            aria-label={t('navbar.lang_aria', language === 'en' ? 'Switch to Arabic' : 'Switch to English')}
+            className={`mobile-menu-toggle ${isMobileMenuOpen ? 'open' : ''}`}
+            data-testid="mobile-menu-toggle"
+            aria-label={isMobileMenuOpen ? t('navbar.close_menu', 'Close Menu') : t('navbar.open_menu', 'Open Navigation Menu')}
+            aria-expanded={isMobileMenuOpen}
+            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
           >
-            <span className="lang-globe-icon" aria-hidden="true">🌐</span>
-            <span className="lang-text">{t('navbar.lang_toggle', language === 'en' ? 'العربية' : 'English')}</span>
+            <span className="hamburger-bar" />
+            <span className="hamburger-bar" />
+            <span className="hamburger-bar" />
           </button>
-
-          {user ? (
-            <div className="nav-user-profile" data-testid="user-profile-badge">
-              <span className="user-avatar" aria-hidden="true">
-                {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
-              </span>
-              <span className="user-identity">
-                {user.user_metadata?.full_name || user.email}
-              </span>
-              <button
-                type="button"
-                className="nav-btn nav-btn-signout"
-                data-testid="btn-signout"
-                onClick={signOut}
-              >
-                {t('navbar.sign_out', 'Sign Out')}
-              </button>
-            </div>
-          ) : (
-            <div className="nav-guest-profile" data-testid="user-guest-badge">
-              <span className="guest-pill">{t('navbar.guest', 'Guest')}</span>
-              <button
-                type="button"
-                className="nav-btn nav-btn-signin"
-                data-testid="btn-nav-signin"
-                onClick={onOpenAuth}
-              >
-                {t('navbar.sign_in', 'Sign In')}
-              </button>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Accessible Backdrop for Mobile Drawer */}
+      {isMobileMenuOpen && (
+        <div
+          className="mobile-menu-backdrop"
+          data-testid="mobile-menu-backdrop"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
     </header>
   );
 }

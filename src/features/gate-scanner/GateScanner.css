@@ -174,8 +174,9 @@
 
 .viewfinder-reticle {
   position: relative;
-  width: 260px;
-  height: 260px;
+  width: min(260px, 72vw);
+  height: min(260px, 72vw);
+  aspect-ratio: 1 / 1;
   border-radius: 16px;
   box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.55);
 }
@@ -243,20 +244,36 @@
   top: 16px;
   right: 16px;
   display: flex;
+  align-items: center;
   gap: 8px;
   z-index: 10;
 }
 
+@media (max-width: 768px) {
+  .scanner-controls-overlay {
+    top: auto;
+    bottom: 20px;
+    right: 16px;
+  }
+}
+
 .btn-scanner-control {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: #fff;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  padding: 8px 14px;
+  min-height: 44px;
+  border-radius: 22px;
+  font-size: 0.85rem;
+  font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  touch-action: manipulation;
   transition: all 0.2s;
 }
 
@@ -298,14 +315,23 @@
   background: var(--scanner-surface);
   border-top: 1px solid var(--scanner-border);
   z-index: 20;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .gate-stats-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  gap: 12px;
+  padding: 10px 16px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .gate-stats-bar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
 }
 
 .stats-left,
@@ -322,14 +348,18 @@
   background: #1e293b;
   border: 1px solid #334155;
   color: #f1f5f9;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.85rem;
+  padding: 8px 14px;
+  min-height: 44px;
+  border-radius: 10px;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
 }
 
-.gate-badge-btn:hover {
+.gate-badge-btn:hover,
+.gate-badge-btn:active {
   background: #334155;
 }
 
@@ -428,14 +458,17 @@
 
 /* 6. Scan Result Overlay */
 .scan-result-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 50;
-  padding: 20px;
+  padding: 1rem;
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+  box-sizing: border-box;
   animation: fadeIn 0.15s ease-out;
 }
 
@@ -458,13 +491,17 @@
 
 .scan-result-card {
   width: 100%;
-  max-width: 440px;
+  max-width: min(92vw, 440px);
+  max-height: 85vh;
   background: #0f172a;
   border-radius: 16px;
   border: 2px solid;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
   position: relative;
+  box-sizing: border-box;
 }
 
 .result-success .scan-result-card {
@@ -546,7 +583,10 @@
 }
 
 .result-details-body {
-  padding: 12px 24px 20px;
+  padding: 12px 24px 16px;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
 }
 
 .detail-row {
@@ -622,7 +662,12 @@
 }
 
 .result-footer {
-  padding: 12px 24px 20px;
+  padding: 12px 24px calc(14px + env(safe-area-inset-bottom, 0px));
+  position: sticky;
+  bottom: 0;
+  background: #0f172a;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 10;
 }
 
 .btn-next-scan {
@@ -631,40 +676,49 @@
   border: 1px solid #334155;
   color: #f8fafc;
   padding: 12px;
+  min-height: 48px;
   border-radius: 10px;
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
+  touch-action: manipulation;
   transition: all 0.2s;
 }
 
-.btn-next-scan:hover {
+.btn-next-scan:hover,
+.btn-next-scan:active {
   background: #334155;
 }
 
 /* 7. Modals: Manual Entry & Gate Selector */
 .manual-entry-backdrop,
 .gate-selector-backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 60;
-  padding: 20px;
+  padding: 1rem;
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+  box-sizing: border-box;
 }
 
 .manual-entry-card,
 .gate-selector-card {
   width: 100%;
-  max-width: 420px;
+  max-width: min(95vw, 460px);
+  max-height: 90vh;
+  overflow-y: auto;
   background: #0f172a;
   border: 1px solid var(--scanner-border);
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 1rem;
+  padding: 1.25rem;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
 }
 
 .modal-header {

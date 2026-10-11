@@ -144,6 +144,7 @@ export function SeatMap({
     <div
       ref={containerRef}
       className="seat-map-wrapper"
+      style={{ touchAction: 'none' }}
       role="grid"
       aria-label="Venue seating plan"
       tabIndex={0}
@@ -187,6 +188,7 @@ export function SeatMap({
       {/* SVG Seating Viewport */}
       <svg
         className="seat-map-svg"
+        style={{ touchAction: 'none' }}
         viewBox={layout?.viewBox || '0 0 1400 950'}
         preserveAspectRatio="xMidYMid meet"
       >

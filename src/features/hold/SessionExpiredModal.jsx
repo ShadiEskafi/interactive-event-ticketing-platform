@@ -16,13 +16,13 @@ export function SessionExpiredModal({ isOpen, onReturnToMap }) {
 
   return (
     <div
-      className="session-expired-overlay"
+      className="session-expired-overlay p-4 sm:p-6 flex items-center justify-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="expired-modal-title"
       aria-describedby="expired-modal-desc"
     >
-      <div className="session-expired-card">
+      <div className="session-expired-card w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
         <div className="expired-icon-wrap" aria-hidden="true">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#E11D48" strokeWidth="2.5">
             <circle cx="12" cy="12" r="10" />

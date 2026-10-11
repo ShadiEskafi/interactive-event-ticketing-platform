@@ -40,7 +40,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay = 2000 }) 
 
   return (
     <div
-      className={`scan-result-overlay ${cardThemeClass}`}
+      className={`scan-result-overlay ${cardThemeClass} p-4 sm:p-6 flex items-center justify-center`}
       data-testid="scan-result-overlay"
       role="dialog"
       aria-modal="true"
@@ -48,7 +48,7 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay = 2000 }) 
       onClick={onClose}
     >
       <div
-        className="scan-result-card"
+        className="scan-result-card w-full max-w-[92vw] sm:max-w-md max-h-[85vh] flex flex-col overflow-y-auto rounded-2xl"
         onClick={(e) => e.stopPropagation()}
         data-testid="scan-result-card"
       >
@@ -170,7 +170,10 @@ export function ScanResultOverlay({ result, onClose, autoDismissDelay = 2000 }) 
         </div>
 
         {/* Footer Action */}
-        <div className="result-footer">
+        <div
+          className="result-footer"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 1rem)' }}
+        >
           <button
             type="button"
             className="btn-next-scan"

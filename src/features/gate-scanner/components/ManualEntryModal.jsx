@@ -44,14 +44,14 @@ export function ManualEntryModal({ isOpen, onClose, onSubmit, isLoading = false 
 
   return (
     <div
-      className="manual-entry-backdrop"
+      className="manual-entry-backdrop p-4 sm:p-6 flex items-center justify-center"
       data-testid="manual-entry-modal"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="manual-entry-title"
     >
-      <div className="manual-entry-card" onClick={(e) => e.stopPropagation()}>
+      <div className="manual-entry-card w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-icon-badge">⌨️</div>
           <div>

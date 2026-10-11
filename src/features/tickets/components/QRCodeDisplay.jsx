@@ -24,6 +24,8 @@ export function QRCodeDisplay({
         background: '#FFFFFF',
         padding: '0.5rem',
         borderRadius: '8px',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
       }}
     >
       <QRCodeSVG
@@ -36,6 +38,7 @@ export function QRCodeDisplay({
         data-testid="qr-code-svg"
         aria-label="Ticket Entry QR Code"
         role="img"
+        style={{ maxWidth: '100%', height: 'auto' }}
       />
     </div>
   );

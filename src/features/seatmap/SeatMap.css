@@ -120,6 +120,15 @@
 @media (max-width: 1024px) {
   .booking-body {
     grid-template-columns: 1fr;
+    padding: 1rem;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .booking-body {
+    padding: 0.75rem;
+    padding-bottom: 150px;
   }
 }
 
@@ -135,6 +144,17 @@
   min-height: 600px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
   outline: none;
+  touch-action: none;
+}
+
+@media (max-width: 768px) {
+  .seat-map-wrapper {
+    min-height: 440px;
+  }
+  .seat-map-svg {
+    min-height: 380px;
+    touch-action: none;
+  }
 }
 
 .seat-map-wrapper:focus-visible {
@@ -323,7 +343,7 @@
   color: #10B981;
 }
 
-/* Cart Summary Aside */
+/* Cart Summary Aside & Mobile Bottom Sheet */
 .cart-summary {
   background: #1E293B;
   border: 1px solid #334155;
@@ -333,6 +353,113 @@
   padding: 1.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
   height: fit-content;
+}
+
+.mobile-sheet-handle-bar {
+  display: none;
+}
+
+.btn-mobile-sheet-toggle {
+  display: none;
+}
+
+.cart-header-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+@media (max-width: 768px) {
+  .cart-summary {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid #334155;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    padding: 0.75rem 1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.6);
+    transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s ease;
+    max-height: 145px;
+    box-sizing: border-box;
+  }
+
+  .mobile-sheet-handle-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2px 0 6px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .mobile-sheet-drag-pill {
+    width: 36px;
+    height: 4px;
+    background: #475569;
+    border-radius: 9999px;
+  }
+
+  .btn-mobile-sheet-toggle {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 0.3rem 0.65rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .cart-summary.mobile-collapsed .selected-seats-list,
+  .cart-summary.mobile-collapsed .cart-tier-breakdown,
+  .cart-summary.mobile-collapsed .cart-tax-notice,
+  .cart-summary.mobile-collapsed .cart-divider,
+  .cart-summary.mobile-collapsed .cart-empty-message,
+  .cart-summary.mobile-collapsed .cart-limit-notice {
+    display: none;
+  }
+
+  .cart-summary.mobile-collapsed .cart-header {
+    margin-bottom: 0.35rem;
+    padding-bottom: 0.35rem;
+    border-bottom: none;
+  }
+
+  .cart-summary.mobile-collapsed .cart-footer {
+    margin-top: 0.35rem;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .cart-summary.mobile-collapsed .cart-subtotal-row {
+    margin-bottom: 0.25rem;
+  }
+
+  .cart-summary.mobile-collapsed .subtotal-amount {
+    font-size: 1.25rem;
+  }
+
+  .cart-summary.mobile-collapsed .btn-checkout {
+    padding: 0.65rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .cart-summary.mobile-expanded {
+    max-height: 80vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .cart-header {

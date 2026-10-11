@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { QRCodeDisplay } from './QRCodeDisplay';
+import { TicketExportActions } from './TicketExportActions';
+import { useTicketExport } from '../hooks/useTicketExport';
 
 /**
- * Full-Screen QR Modal Component (SPEC-04 / REQ-TICK-04.5)
- * Maximizes screen contrast with brightness boost for seamless physical gate scanner validation.
+ * Full-Screen QR Modal / Digital Pass Modal Component (SPEC-04 / REQ-TICK-04.5)
+ * Maximizes screen contrast with brightness boost for seamless physical gate scanner validation,
+ * with proportional QR scaling and download PNG/PDF actions on mobile screens.
  */
 export function FullScreenQRModal({
   isOpen = false,
@@ -11,6 +14,7 @@ export function FullScreenQRModal({
   onClose,
 }) {
   const modalRef = useRef(null);
+  const { isExportingPdf, isExportingPng, downloadPdf, downloadPng } = useTicketExport();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -36,9 +40,17 @@ export function FullScreenQRModal({
 
   if (!isOpen || !ticket) return null;
 
+  const handlePdfClick = () => {
+    downloadPdf(ticket, modalRef.current);
+  };
+
+  const handlePngClick = () => {
+    downloadPng(modalRef.current, ticket.ticket_code || 'PASS');
+  };
+
   return (
     <div
-      className="qr-modal-backdrop"
+      className="qr-modal-backdrop p-4 sm:p-6 flex items-center justify-center"
       data-testid="qr-modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget && onClose) {
@@ -51,7 +63,7 @@ export function FullScreenQRModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="qr-modal-title"
-        className="full-screen-qr-container brightness-boost"
+        className="full-screen-qr-container brightness-boost w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl"
         data-testid="full-screen-qr-container"
       >
         <header className="qr-modal-header">
@@ -81,11 +93,11 @@ export function FullScreenQRModal({
             <span className="qr-modal-attendee">{ticket.attendee_name || 'Valued Attendee'}</span>
           </div>
 
-          {/* Large High-Contrast QR Code */}
+          {/* Scaled High-Contrast QR Code */}
           <div className="qr-modal-code-wrapper">
             <QRCodeDisplay
               value={ticket.qr_payload || ticket.qr_signature}
-              size={260}
+              size={220}
               className="qr-modal-qr"
             />
           </div>
@@ -96,8 +108,20 @@ export function FullScreenQRModal({
               Present this high-contrast QR code to the gate validator scanner.
             </span>
           </div>
+
+          {/* Download PNG & PDF Action Buttons */}
+          <div className="qr-modal-export-section" style={{ marginTop: '1.25rem' }}>
+            <TicketExportActions
+              onDownloadPdf={handlePdfClick}
+              onDownloadPng={handlePngClick}
+              isExportingPdf={isExportingPdf}
+              isExportingPng={isExportingPng}
+            />
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+export { FullScreenQRModal as PassModal };

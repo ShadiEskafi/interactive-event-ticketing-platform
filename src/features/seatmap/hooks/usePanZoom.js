@@ -131,32 +131,63 @@ export function usePanZoom(refOrInitialTransform, maybeInitialTransform) {
 
     let initialTouchDistance = null;
     let initialTouchScale = 1;
+    let initialTouchCenter = null;
+    let initialTouchTransform = null;
 
     const handleTouchStart = (e) => {
       if (e.touches && e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        // Multi-touch active: stop single pointer dragging
+        isDraggingRef.current = false;
+
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        const dx = t0.clientX - t1.clientX;
+        const dy = t0.clientY - t1.clientY;
         initialTouchDistance = Math.hypot(dx, dy);
         initialTouchScale = transformRef.current.scale;
+        initialTouchCenter = {
+          x: (t0.clientX + t1.clientX) / 2,
+          y: (t0.clientY + t1.clientY) / 2,
+        };
+        initialTouchTransform = { ...transformRef.current };
       }
     };
 
     const handleTouchMove = (e) => {
-      if (e.touches && e.touches.length === 2 && initialTouchDistance) {
+      if (e.touches && e.touches.length === 2 && initialTouchDistance && initialTouchCenter && initialTouchTransform) {
         if (e.cancelable) {
           e.preventDefault();
         }
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        const dx = t0.clientX - t1.clientX;
+        const dy = t0.clientY - t1.clientY;
         const currentDistance = Math.hypot(dx, dy);
-        const factor = currentDistance / initialTouchDistance;
+        const factor = currentDistance / (initialTouchDistance || 1);
         const nextScale = Math.min(Math.max(initialTouchScale * factor, 0.5), 3.5);
-        setTransform((prev) => ({ ...prev, scale: Number(nextScale.toFixed(2)) }));
+
+        // Two-finger touch panning
+        const currentCenter = {
+          x: (t0.clientX + t1.clientX) / 2,
+          y: (t0.clientY + t1.clientY) / 2,
+        };
+        const deltaX = currentCenter.x - initialTouchCenter.x;
+        const deltaY = currentCenter.y - initialTouchCenter.y;
+
+        updateTransformRaf({
+          x: initialTouchTransform.x + deltaX,
+          y: initialTouchTransform.y + deltaY,
+          scale: Number(nextScale.toFixed(2)),
+        });
       }
     };
 
-    const handleTouchEnd = () => {
-      initialTouchDistance = null;
+    const handleTouchEnd = (e) => {
+      if (!e.touches || e.touches.length < 2) {
+        initialTouchDistance = null;
+        initialTouchCenter = null;
+        initialTouchTransform = null;
+      }
     };
 
     element.addEventListener('wheel', handleWheel, { passive: false });
@@ -170,7 +201,7 @@ export function usePanZoom(refOrInitialTransform, maybeInitialTransform) {
       element.removeEventListener('touchmove', handleTouchMove);
       element.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [containerRef]);
+  }, [containerRef, updateTransformRaf]);
 
   return {
     transform,
