@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { SeatMap } from './SeatMap';
 import { CartSummary } from './components/CartSummary';
 import { useSeatSelection } from './hooks/useSeatSelection';
-import { ticketingService as mockTicketingService } from '../../services';
+import { ticketingService } from '../../services';
 import { adminService } from '../admin/services/adminService';
 import {
   useSeatHold,
@@ -74,11 +74,11 @@ export function EventBookingPage({
   const refreshSeats = useCallback(async () => {
     try {
       try {
-        await mockTicketingService.releaseExpiredSeats(eventId);
+        await ticketingService.releaseExpiredSeats(eventId);
       } catch {
         // Safe sweep fallback
       }
-      const seatData = await mockTicketingService.getSeatAvailability(eventId);
+      const seatData = await ticketingService.getSeatAvailability(eventId);
       setSeats(seatData);
     } catch {
       // Safe fallback
@@ -92,7 +92,7 @@ export function EventBookingPage({
       try {
         setIsLoading(true);
         try {
-          await mockTicketingService.releaseExpiredSeats(eventId);
+          await ticketingService.releaseExpiredSeats(eventId);
         } catch {
           // Safe sweep fallback
         }
@@ -108,8 +108,8 @@ export function EventBookingPage({
         }
 
         const [venueLayout, seatData] = await Promise.all([
-          mockTicketingService.getVenueLayout(venueId),
-          mockTicketingService.getSeatAvailability(eventId),
+          ticketingService.getVenueLayout(venueId),
+          ticketingService.getSeatAvailability(eventId),
         ]);
         if (isMounted) {
           let effectiveLayout = venueLayout;
@@ -169,7 +169,7 @@ export function EventBookingPage({
               // Hold expired: automatically clear storage and release hold
               clearPendingBooking();
               if (pending.seatIds && pending.seatIds.length > 0) {
-                mockTicketingService.releaseSeats(
+                ticketingService.releaseSeats(
                   pending.eventId || eventId,
                   pending.seatIds,
                   pending.anonymousSessionId || pending.userId
@@ -275,7 +275,7 @@ export function EventBookingPage({
     const anonId = reservationData?.userId;
 
     try {
-      await mockTicketingService.transferHold(
+      await ticketingService.transferHold(
         eventId,
         seatIds,
         authenticatedUser.id,

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { ticketingService as mockTicketingService } from '../../../services';
+import { ticketingService } from '../../../services';
 
 export const ANON_SESSION_KEY = 'ticketcraft_anon_session_id';
 export const PENDING_BOOKING_STORAGE_KEY = 'pending_booking';
@@ -147,7 +147,7 @@ export function useSeatHold() {
         clearPendingBooking();
         if (stored.seatIds && stored.seatIds.length > 0) {
           const effectiveUser = stored.anonymousSessionId || stored.userId || sessionId;
-          mockTicketingService.releaseSeats(
+          ticketingService.releaseSeats(
             stored.eventId || eventIdRef.current,
             stored.seatIds,
             effectiveUser
@@ -175,7 +175,7 @@ export function useSeatHold() {
         }
 
         try {
-          mockTicketingService.releaseSeats(eventId, reservationData.seatIds, userId);
+          ticketingService.releaseSeats(eventId, reservationData.seatIds, userId);
         } catch {
           // Safe unload fallback
         }
@@ -202,7 +202,7 @@ export function useSeatHold() {
     setSessionId(effectiveUserId);
 
     try {
-      const result = await mockTicketingService.reserveSeats(
+      const result = await ticketingService.reserveSeats(
         eventId,
         seatIds,
         effectiveUserId,
@@ -241,7 +241,7 @@ export function useSeatHold() {
   const release = useCallback(async (eventId, seatIds, userId) => {
     const effectiveUserId = userId || sessionId;
     try {
-      const result = await mockTicketingService.releaseSeats(eventId, seatIds, effectiveUserId);
+      const result = await ticketingService.releaseSeats(eventId, seatIds, effectiveUserId);
       setReservationData(null);
       clearPendingBooking();
       return result;

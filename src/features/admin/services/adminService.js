@@ -1,5 +1,6 @@
 import { FEATURED_EVENTS } from '../../landing/featuredEvents';
-import { mockTicketingService } from '../../seatmap/services/mockTicketingService';
+import { ticketingService } from '../../../services';
+import { supabase } from '../../../services/supabaseClient';
 import { cryptoSigner } from '../../tickets/services/cryptoSigner';
 
 export const STANDARD_VENUE_CAPACITY = 520;
@@ -45,6 +46,10 @@ export class AdminService {
   constructor() {
     this.capacity = STANDARD_VENUE_CAPACITY;
     this.cryptoSigner = cryptoSigner;
+    this._customEvents = [];
+    this._overrides = {};
+    this._users = [...INITIAL_USERS];
+    this._auditLogs = [];
   }
 
   // -------------------------------------------------------------
@@ -52,48 +57,54 @@ export class AdminService {
   // -------------------------------------------------------------
 
   _loadCustomEvents() {
-    if (typeof window === 'undefined' || !window.localStorage) return [];
-    try {
-      const stored = window.localStorage.getItem(CUSTOM_EVENTS_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return Array.isArray(parsed) ? parsed : [];
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const stored = window.localStorage.getItem(CUSTOM_EVENTS_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {
+        // Safe fallback
       }
-    } catch {
-      // Safe fallback
     }
-    return [];
+    return Array.isArray(this._customEvents) ? this._customEvents : [];
   }
 
   _saveCustomEvents(events) {
-    if (typeof window === 'undefined' || !window.localStorage) return;
-    try {
-      window.localStorage.setItem(CUSTOM_EVENTS_STORAGE_KEY, JSON.stringify(events));
-    } catch {
-      // Safe storage quota fallback
+    this._customEvents = Array.isArray(events) ? events : [];
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(CUSTOM_EVENTS_STORAGE_KEY, JSON.stringify(events));
+      } catch {
+        // Safe fallback
+      }
     }
   }
 
   _loadOverrides() {
-    if (typeof window === 'undefined' || !window.localStorage) return {};
-    try {
-      const stored = window.localStorage.getItem(EVENT_OVERRIDES_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const stored = window.localStorage.getItem(EVENT_OVERRIDES_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (typeof parsed === 'object' && parsed !== null) return parsed;
+        }
+      } catch {
+        // Safe fallback
       }
-    } catch {
-      // Safe fallback
     }
-    return {};
+    return typeof this._overrides === 'object' && this._overrides !== null ? this._overrides : {};
   }
 
   _saveOverrides(overrides) {
-    if (typeof window === 'undefined' || !window.localStorage) return;
-    try {
-      window.localStorage.setItem(EVENT_OVERRIDES_STORAGE_KEY, JSON.stringify(overrides));
-    } catch {
-      // Safe storage quota fallback
+    this._overrides = typeof overrides === 'object' && overrides !== null ? overrides : {};
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(EVENT_OVERRIDES_STORAGE_KEY, JSON.stringify(overrides));
+      } catch {
+        // Safe fallback
+      }
     }
   }
 
@@ -102,16 +113,7 @@ export class AdminService {
   // -------------------------------------------------------------
 
   /**
-   * Appends an audit log entry to localStorage under ticketcraft_audit_logs
-   * Supported actions: 'ROLE_UPDATE', 'GATE_STAFF_CREATED', 'EVENT_CREATED',
-   * 'EVENT_UPDATED', 'EVENT_DELETED', 'HOLDS_FLUSHED', 'CLEAN_STATE_RESET', 'USER_STATUS_TOGGLED'
-   *
-   * @param {Object} entry
-   * @param {string} entry.action
-   * @param {string} [entry.actorEmail]
-   * @param {string} [entry.target]
-   * @param {Object} [entry.details]
-   * @returns {Object} Created audit log item
+   * Appends an audit log entry to memory and persists to Supabase audit_logs table
    */
   recordAuditLog({ action, actorEmail, target, details }) {
     const timestamp = new Date().toISOString();
@@ -124,14 +126,20 @@ export class AdminService {
       details: typeof details === 'object' && details !== null ? details : { raw: details },
     };
 
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const existing = this.getAuditLogs();
-        const updated = [entry, ...existing];
-        window.localStorage.setItem(AUDIT_LOGS_STORAGE_KEY, JSON.stringify(updated));
-      } catch (err) {
-        console.warn('Failed to persist audit log entry:', err);
-      }
+    this._auditLogs = [entry, ...(this._auditLogs || [])];
+
+    try {
+      supabase
+        .from('audit_logs')
+        .insert({
+          action: entry.action,
+          entity_type: 'platform',
+          entity_id: entry.target,
+          details: entry.details,
+        })
+        .then(() => {});
+    } catch {
+      // Safe fallback
     }
 
     return entry;
@@ -142,21 +150,7 @@ export class AdminService {
    * @returns {Array} List of audit logs
    */
   getAuditLogs() {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      return [];
-    }
-    try {
-      const stored = window.localStorage.getItem(AUDIT_LOGS_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          return parsed.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        }
-      }
-    } catch {
-      // Safe fallback
-    }
-    return [];
+    return (this._auditLogs || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   }
 
   // -------------------------------------------------------------
@@ -282,8 +276,16 @@ export class AdminService {
     customEvents.push(newEvent);
     this._saveCustomEvents(customEvents);
 
-    // Automatically invoke mockTicketingService.seedEventSeats(newEvent) to generate and persist 520 seats
-    mockTicketingService.seedEventSeats(newEvent);
+    // Persist new event and generate 520 seats in Supabase
+    try {
+      if (typeof ticketingService.createEventWithSeats === 'function') {
+        ticketingService.createEventWithSeats(newEvent);
+      } else {
+        ticketingService.seedEventSeats?.(newEvent);
+      }
+    } catch {
+      // Safe fallback
+    }
 
     this.recordAuditLog({
       action: 'EVENT_CREATED',
@@ -445,8 +447,8 @@ export class AdminService {
     const events = this.getAllEvents();
     const activeEvents = events.filter((e) => e.status !== 'draft');
 
-    const liveTickets = mockTicketingService.tickets || [];
-    const liveBookings = mockTicketingService.bookings || [];
+    const liveTickets = ticketingService.tickets || [];
+    const liveBookings = ticketingService.bookings || [];
 
     const liveTicketRevenue = liveTickets.reduce((sum, t) => sum + (Number(t.price) || 0), 0);
     const liveBookingRevenue = liveBookings.reduce(
@@ -507,12 +509,12 @@ export class AdminService {
   // -------------------------------------------------------------
 
   /**
-   * Returns ticket records for this event from mockTicketingService.
+   * Returns ticket records for this event from ticketingService.
    * Starts clean with zero mock attendees.
    */
   getEventAttendees(eventId) {
     const targetId = eventId || 'evt-symphony-2026';
-    const liveTickets = mockTicketingService.tickets || [];
+    const liveTickets = ticketingService.tickets || [];
     const eventLiveTickets = liveTickets.filter((t) => t.event_id === targetId);
 
     // Any real runtime tickets
@@ -592,27 +594,14 @@ export class AdminService {
    * Returns list of platform users. Initially contains only hardcoded Super Admin.
    */
   getUsers() {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      return [...INITIAL_USERS];
+    if (!this._users || this._users.length === 0) {
+      this._users = [...INITIAL_USERS];
     }
-    try {
-      const stored = window.localStorage.getItem(PLATFORM_USERS_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-      // Seed initial super admin if not present
-      window.localStorage.setItem(PLATFORM_USERS_STORAGE_KEY, JSON.stringify(INITIAL_USERS));
-    } catch {
-      // Safe fallback
-    }
-    return [...INITIAL_USERS];
+    return [...this._users];
   }
 
   /**
-   * Updates user role in storage and records audit log
+   * Updates user role in memory & Supabase profiles and records audit log
    * @param {string} userId
    * @param {'super_admin'|'organizer'|'gate_staff'|'attendee'} newRole
    * @param {string} [actorEmail]
@@ -628,14 +617,16 @@ export class AdminService {
       role: newRole,
       updatedAt: new Date().toISOString(),
     };
+    this._users = users;
 
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(PLATFORM_USERS_STORAGE_KEY, JSON.stringify(users));
-        window.localStorage.setItem(`ticketcraft_invalidated_user_${userId}`, Date.now().toString());
-      } catch {
-        // Safe fallback
-      }
+    try {
+      supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId)
+        .then(() => {});
+    } catch {
+      // Safe fallback
     }
 
     this.recordAuditLog({
@@ -698,13 +689,7 @@ export class AdminService {
       users.push(newStaffUser);
     }
 
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(PLATFORM_USERS_STORAGE_KEY, JSON.stringify(users));
-      } catch {
-        // Safe fallback
-      }
-    }
+    this._users = users;
 
     this.recordAuditLog({
       action: 'GATE_STAFF_CREATED',
@@ -723,15 +708,6 @@ export class AdminService {
 
   /**
    * Creates a platform user with specified role, status: 'active', and records audit log.
-   * Allows Super Admin to provision users of any role ('attendee', 'organizer', 'gate_staff', 'super_admin').
-   * @param {Object} params
-   * @param {string} params.name
-   * @param {string} [params.name_ar]
-   * @param {string} params.email
-   * @param {string} [params.password]
-   * @param {'attendee'|'organizer'|'gate_staff'|'super_admin'} [params.role='attendee']
-   * @param {string} [params.actorEmail]
-   * @returns {Object} Created user
    */
   createUser({
     name,
@@ -772,13 +748,7 @@ export class AdminService {
       users.push(newUser);
     }
 
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(PLATFORM_USERS_STORAGE_KEY, JSON.stringify(users));
-      } catch {
-        // Safe fallback
-      }
-    }
+    this._users = users;
 
     this.recordAuditLog({
       action: 'USER_CREATED',
@@ -796,8 +766,6 @@ export class AdminService {
 
   /**
    * Toggles active / suspended status for a user
-   * @param {string} userId
-   * @param {string} [actorEmail]
    */
   toggleUserStatus(userId, actorEmail = INITIAL_SUPER_ADMIN.email) {
     const users = this.getUsers();
@@ -813,13 +781,7 @@ export class AdminService {
       updatedAt: new Date().toISOString(),
     };
 
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        window.localStorage.setItem(PLATFORM_USERS_STORAGE_KEY, JSON.stringify(users));
-      } catch {
-        // Safe fallback
-      }
-    }
+    this._users = users;
 
     this.recordAuditLog({
       action: 'USER_STATUS_TOGGLED',
@@ -839,10 +801,10 @@ export class AdminService {
   // -------------------------------------------------------------
 
   /**
-   * Calls mockTicketingService.releaseExpiredSeats() to flush seats where hold has elapsed
+   * Calls ticketingService.releaseExpiredSeats() to flush seats where hold has elapsed
    */
   async flushExpiredSeatHolds(eventId = null, actorEmail = INITIAL_SUPER_ADMIN.email) {
-    const result = await mockTicketingService.releaseExpiredSeats(eventId);
+    const result = await ticketingService.releaseExpiredSeats(eventId);
     const released_count =
       typeof result === 'object' && result !== null
         ? Number(result.released_count ?? 0)
@@ -865,9 +827,9 @@ export class AdminService {
    * Returns current seat status breakdown (available, reserved/held, sold, expiredHolds)
    */
   getConcurrencyStats(eventId = null) {
-    const seats = eventId && typeof mockTicketingService.getSeatsForEvent === 'function'
-      ? mockTicketingService.getSeatsForEvent(eventId)
-      : (mockTicketingService.seats || []);
+    const seats = eventId && typeof ticketingService.getSeatsForEvent === 'function'
+      ? ticketingService.getSeatsForEvent(eventId)
+      : (ticketingService.seats || []);
     let available = 0;
     let reserved = 0;
     let sold = 0;
@@ -905,6 +867,11 @@ export class AdminService {
    * attendees, and restores only the default Super Admin user.
    */
   resetToCleanState(actorEmail = INITIAL_SUPER_ADMIN.email) {
+    this._customEvents = [];
+    this._overrides = {};
+    this._users = [...INITIAL_USERS];
+    this._auditLogs = [];
+
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.removeItem(CUSTOM_EVENTS_STORAGE_KEY);
@@ -916,8 +883,8 @@ export class AdminService {
       }
     }
 
-    // Reset mock ticketing inventory, seats, holds, and bookings
-    mockTicketingService.resetState();
+    // Reset ticketing inventory, seats, holds, and bookings
+    ticketingService.resetState?.();
 
     // Record the clean reset event
     const log = this.recordAuditLog({
@@ -938,9 +905,13 @@ export class AdminService {
   }
 
   /**
-   * Reset local storage state for clean test isolation
+   * Reset in-memory state for clean test isolation
    */
   resetState() {
+    this._customEvents = [];
+    this._overrides = {};
+    this._users = [...INITIAL_USERS];
+    this._auditLogs = [];
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.removeItem(CUSTOM_EVENTS_STORAGE_KEY);
@@ -951,7 +922,7 @@ export class AdminService {
         // Safe fallback
       }
     }
-    mockTicketingService.resetState();
+    ticketingService.resetState?.();
   }
 }
 
