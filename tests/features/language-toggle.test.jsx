@@ -113,7 +113,7 @@ describe('Bilingual Localization & RTL Support (TicketCraft MVP - Arabic Default
       // Center nav links reflect Arabic translations by default
       expect(screen.getByTestId('nav-link-home')).toHaveTextContent('الرئيسية');
       expect(screen.getByTestId('nav-link-events')).toHaveTextContent('الفعاليات المميزة');
-      expect(screen.getByTestId('nav-link-my-tickets')).toHaveTextContent('تذاكري');
+      expect(screen.getByTestId('btn-nav-signin')).toHaveTextContent('تسجيل الدخول');
       expect(screen.getByTestId('user-guest-badge')).toHaveTextContent('زائر');
 
       // Click to toggle to English
@@ -126,7 +126,7 @@ describe('Bilingual Localization & RTL Support (TicketCraft MVP - Arabic Default
 
       expect(screen.getByTestId('nav-link-home')).toHaveTextContent('Home');
       expect(screen.getByTestId('nav-link-events')).toHaveTextContent('Featured Events');
-      expect(screen.getByTestId('nav-link-my-tickets')).toHaveTextContent('My Tickets');
+      expect(screen.getByTestId('btn-nav-signin')).toHaveTextContent('Sign In');
       expect(screen.getByTestId('user-guest-badge')).toHaveTextContent('Guest');
 
       // Click again to toggle back to Arabic
@@ -135,6 +135,31 @@ describe('Bilingual Localization & RTL Support (TicketCraft MVP - Arabic Default
       expect(toggleBtn).toHaveTextContent('English');
       expect(document.documentElement.dir).toBe('rtl');
       expect(document.documentElement.lang).toBe('ar');
+    });
+
+    it('translates My Tickets link for authenticated attendee when language is toggled', () => {
+      const attendeeAuth = new MockAuthService({
+        id: 'usr-attendee',
+        email: 'attendee@ticketcraft.com',
+        role: 'attendee',
+      });
+
+      render(
+        <LanguageProvider>
+          <AuthProvider customAuthService={attendeeAuth}>
+            <MainNavbar />
+          </AuthProvider>
+        </LanguageProvider>
+      );
+
+      const toggleBtn = screen.getByTestId('language-toggle-btn');
+      expect(screen.getByTestId('nav-link-my-tickets')).toHaveTextContent('تذاكري');
+
+      fireEvent.click(toggleBtn);
+      expect(screen.getByTestId('nav-link-my-tickets')).toHaveTextContent('My Tickets');
+
+      fireEvent.click(toggleBtn);
+      expect(screen.getByTestId('nav-link-my-tickets')).toHaveTextContent('تذاكري');
     });
 
     it('translates Landing Page hero, metrics, filters, events, and Why section into Arabic with 1-2-3 numerals', () => {

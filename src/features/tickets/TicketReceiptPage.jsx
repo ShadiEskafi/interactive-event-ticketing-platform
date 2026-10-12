@@ -1,5 +1,6 @@
 import { TicketPassView } from './components/TicketPassView';
 import { formatCurrency } from '../seatmap/utils/formatters';
+import { CheckCircleIcon } from '../../components/common/Icons';
 import './Tickets.css';
 
 /**
@@ -21,7 +22,9 @@ export function TicketReceiptPage({
     <div className="receipt-page-container" data-testid="ticket-receipt-page">
       {/* Success Header Banner */}
       <header className="receipt-banner">
-        <div className="receipt-success-icon" aria-hidden="true">🎉</div>
+        <div className="receipt-success-icon" aria-hidden="true" style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem', color: '#10b981' }}>
+          <CheckCircleIcon size={48} />
+        </div>
         <h1 className="receipt-title">Booking Confirmed!</h1>
         <p className="receipt-subtitle">
           Your digital passes have been issued and cryptographically signed.

@@ -5,9 +5,19 @@ import { authService as defaultAuthService } from '../../../services/authService
 export function AuthProvider({ children, customAuthService }) {
   const service = customAuthService || defaultAuthService;
 
-  const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    if (service && service.currentUser && !service.isUserInvalidated?.(service.currentUser.id)) {
+      return service.currentUser;
+    }
+    return null;
+  });
+  const [session, setSession] = useState(() => {
+    if (service && service.currentUser && !service.isUserInvalidated?.(service.currentUser.id)) {
+      return { user: service.currentUser };
+    }
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState(() => !service?.currentUser);
   const [authError, setAuthError] = useState(null);
 
   // Initialize session on mount
@@ -16,10 +26,16 @@ export function AuthProvider({ children, customAuthService }) {
 
     async function initSession() {
       try {
-        const { session: currentSession, user: currentUser } = await service.getSession();
+        const { session: currentSession, user: currentUser, invalidated } = await service.getSession();
         if (isMounted) {
-          setSession(currentSession);
-          setUser(currentUser);
+          if (invalidated) {
+            setUser(null);
+            setSession(null);
+            setAuthError('Your privileges were updated. Please sign in again to access updated features.');
+          } else {
+            setSession(currentSession);
+            setUser(currentUser);
+          }
         }
       } catch (err) {
         if (isMounted) {
@@ -36,6 +52,25 @@ export function AuthProvider({ children, customAuthService }) {
 
     const unsubscribe = service.onAuthStateChange((updatedUser) => {
       if (isMounted) {
+        if (updatedUser) {
+          const invalidationKey = `ticketcraft_invalidated_user_${updatedUser.id}`;
+          const isInvalidated =
+            (typeof service.isUserInvalidated === 'function' && service.isUserInvalidated(updatedUser.id)) ||
+            (typeof window !== 'undefined' && window.localStorage?.getItem(invalidationKey));
+
+          if (isInvalidated) {
+            if (typeof service.clearUserInvalidation === 'function') {
+              service.clearUserInvalidation(updatedUser.id);
+            } else if (typeof window !== 'undefined' && window.localStorage) {
+              window.localStorage.removeItem(invalidationKey);
+            }
+            service.signOut();
+            setUser(null);
+            setSession(null);
+            setAuthError('Your privileges were updated. Please sign in again to access updated features.');
+            return;
+          }
+        }
         setUser(updatedUser);
         setSession(updatedUser ? { user: updatedUser } : null);
       }
@@ -46,6 +81,45 @@ export function AuthProvider({ children, customAuthService }) {
       unsubscribe();
     };
   }, [service]);
+
+  // Real-time listener for session invalidation (cross-tab / storage updates)
+  useEffect(() => {
+    if (!user?.id) return;
+    const invalidationKey = `ticketcraft_invalidated_user_${user.id}`;
+
+    const checkInvalidation = () => {
+      const isInvalidated =
+        (typeof service.isUserInvalidated === 'function' && service.isUserInvalidated(user.id)) ||
+        (typeof window !== 'undefined' && window.localStorage?.getItem(invalidationKey));
+
+      if (isInvalidated) {
+        if (typeof service.clearUserInvalidation === 'function') {
+          service.clearUserInvalidation(user.id);
+        } else if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(invalidationKey);
+        }
+        service.signOut();
+        setUser(null);
+        setSession(null);
+        setAuthError('Your privileges were updated. Please sign in again to access updated features.');
+      }
+    };
+
+    checkInvalidation();
+
+    const handleStorage = (e) => {
+      if (!e.key || e.key === invalidationKey) {
+        checkInvalidation();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorage);
+      return () => {
+        window.removeEventListener('storage', handleStorage);
+      };
+    }
+  }, [user, service]);
 
   const signIn = useCallback(
     async ({ email, password }) => {
@@ -135,6 +209,15 @@ export function AuthProvider({ children, customAuthService }) {
     setAuthError(null);
   }, []);
 
+  const invalidateUser = useCallback(
+    (userId) => {
+      if (typeof service.invalidateUser === 'function') {
+        service.invalidateUser(userId);
+      }
+    },
+    [service]
+  );
+
   const value = useMemo(
     () => ({
       user,
@@ -146,8 +229,9 @@ export function AuthProvider({ children, customAuthService }) {
       signInWithOAuth,
       signOut,
       clearError,
+      invalidateUser,
     }),
-    [user, session, isLoading, authError, signIn, signUp, signInWithOAuth, signOut, clearError]
+    [user, session, isLoading, authError, signIn, signUp, signInWithOAuth, signOut, clearError, invalidateUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

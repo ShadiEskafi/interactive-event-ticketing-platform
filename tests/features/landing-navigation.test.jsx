@@ -184,6 +184,7 @@ describe('Landing Page & Navigation Integration (TicketCraft MVP)', () => {
     });
 
     it('redirects from "My Tickets" to "landing" when clicking Explore Events button', async () => {
+      mockAuth = new MockAuthService({ id: 'usr-attendee', email: 'attendee@example.com', role: 'attendee' });
       render(
         <AuthProvider customAuthService={mockAuth}>
           <AppContent />
@@ -205,6 +206,7 @@ describe('Landing Page & Navigation Integration (TicketCraft MVP)', () => {
     });
 
     it('navigates to landing view when brand logo or Home is clicked in navbar', () => {
+      mockAuth = new MockAuthService({ id: 'usr-attendee', email: 'attendee@example.com', role: 'attendee' });
       render(
         <AuthProvider customAuthService={mockAuth}>
           <AppContent />

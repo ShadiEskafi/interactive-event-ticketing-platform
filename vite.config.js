@@ -37,5 +37,9 @@ export default defineConfig({
     setupFiles: './tests/setup.js',
     testTimeout: 15000,
   },
+  server: {
+    // بتسمح لأي رابط ngrok يشتغل معك حتى لو اتغير الدومين
+    allowedHosts: ['.ngrok-free.app']
+  }
 })
 

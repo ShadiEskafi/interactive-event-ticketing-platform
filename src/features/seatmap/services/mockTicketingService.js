@@ -2,9 +2,11 @@ import { mockVenueLayout, generateSeats } from '../data/mockVenueLayout';
 import { cryptoSigner } from '../../tickets/services/cryptoSigner';
 import { parseQRPayload } from '../../tickets/utils/qrPayload';
 import { generateTicketCode, generateBookingId } from '../../tickets/utils/ticketCodeGenerator';
+import { FEATURED_EVENTS } from '../../landing/featuredEvents';
 
 export const MOCK_TICKETS_STORAGE_KEY = 'ticketcraft_mock_tickets';
 export const MOCK_BOOKINGS_STORAGE_KEY = 'ticketcraft_mock_bookings';
+export const EVENT_SEATS_STORAGE_KEY_PREFIX = 'ticketcraft_seats_';
 
 /**
  * Normalizes ticket object to predictable model for UI consumers
@@ -46,6 +48,8 @@ export class MockTicketingService {
   constructor() {
     this.layout = mockVenueLayout;
     this.seats = generateSeats(mockVenueLayout);
+    this.eventSeats = new Map();
+    this.eventSeats.set('evt-symphony-2026', this.seats);
     this.listeners = new Set();
     this.bookings = [];
     this.tickets = [];
@@ -55,6 +59,24 @@ export class MockTicketingService {
   _loadFromStorage() {
     if (typeof window === 'undefined' || !window.localStorage) return;
     try {
+      // Hydrate all cached event seat lists
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (key && key.startsWith(EVENT_SEATS_STORAGE_KEY_PREFIX)) {
+          const eventId = key.substring(EVENT_SEATS_STORAGE_KEY_PREFIX.length);
+          const val = window.localStorage.getItem(key);
+          if (val) {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              this.eventSeats.set(eventId, parsed);
+              if (eventId === 'evt-symphony-2026') {
+                this.seats = parsed;
+              }
+            }
+          }
+        }
+      }
+
       const storedTickets = window.localStorage.getItem(MOCK_TICKETS_STORAGE_KEY);
       if (storedTickets) {
         const parsed = JSON.parse(storedTickets);
@@ -91,14 +113,160 @@ export class MockTicketingService {
     }
   }
 
+  _saveEventSeats(eventId, seats) {
+    const targetId = eventId || 'evt-symphony-2026';
+    this.eventSeats.set(targetId, seats);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(
+          `${EVENT_SEATS_STORAGE_KEY_PREFIX}${targetId}`,
+          JSON.stringify(seats)
+        );
+      } catch {
+        // Safe storage quota fallback
+      }
+    }
+  }
+
+  _lookupEvent(eventId) {
+    if (!eventId) return null;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const customEvents = window.localStorage.getItem('ticketcraft_custom_events');
+        if (customEvents) {
+          const list = JSON.parse(customEvents);
+          if (Array.isArray(list)) {
+            const found = list.find((e) => e.id === eventId);
+            if (found) return found;
+          }
+        }
+      } catch {
+        // Safe fallback
+      }
+      try {
+        const overrides = window.localStorage.getItem('ticketcraft_event_overrides');
+        if (overrides) {
+          const obj = JSON.parse(overrides);
+          if (obj && obj[eventId]) return obj[eventId];
+        }
+      } catch {
+        // Safe fallback
+      }
+    }
+    if (Array.isArray(FEATURED_EVENTS)) {
+      const featured = FEATURED_EVENTS.find((e) => e.id === eventId);
+      if (featured) return featured;
+    }
+    return null;
+  }
+
+  /**
+   * Generates and persists 520 seats for a specific event
+   */
+  seedEventSeats(event) {
+    if (!event || !event.id) return [];
+
+    const pVip = Number(event.vipPrice ?? event.tierPricing?.vip ?? 150);
+    const pReg = Number(event.regularPrice ?? event.tierPricing?.regular ?? 85);
+    const pBal = Number(event.balconyPrice ?? event.tierPricing?.balcony ?? 45);
+
+    const generated = [];
+
+    this.layout.sections.forEach((section) => {
+      let price = pReg;
+      if (section.id === 'sec-vip' || section.category === 'VIP') {
+        price = pVip;
+      } else if (section.id === 'sec-balc' || section.category === 'Balcony') {
+        price = pBal;
+      } else {
+        price = pReg;
+      }
+
+      section.rows.forEach((row) => {
+        for (let i = 1; i <= row.seats; i++) {
+          const seatId = `${row.rowLabel}-${i}`;
+          generated.push({
+            id: seatId,
+            rowLabel: row.rowLabel,
+            seatNumber: i,
+            sectionId: section.id,
+            sectionName: section.name,
+            category: section.category,
+            price,
+            status: 'available',
+            eventId: event.id,
+            reservedBy: null,
+            reservedUntil: null,
+            cx: row.startX + (i - 1) * row.spacing,
+            cy: row.startY,
+            radius: 12,
+          });
+        }
+      });
+    });
+
+    this._saveEventSeats(event.id, generated);
+    return generated;
+  }
+
+  /**
+   * Retrieves seats for a given event from cache, storage, or auto-seeds 520 seats.
+   */
+  getSeatsForEvent(eventId) {
+    const targetId = eventId || 'evt-symphony-2026';
+
+    // 1. If default event and this.seats exists (handles direct test mutations of mockTicketingService.seats)
+    if (
+      (targetId === 'evt-symphony-2026' || !targetId) &&
+      Array.isArray(this.seats) &&
+      this.seats.length > 0
+    ) {
+      if (!this.eventSeats.has('evt-symphony-2026')) {
+        this.eventSeats.set('evt-symphony-2026', this.seats);
+      }
+      return this.seats;
+    }
+
+    // 2. Check in-memory cache
+    if (this.eventSeats.has(targetId)) {
+      return this.eventSeats.get(targetId);
+    }
+
+    // 3. Check localStorage
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const stored = window.localStorage.getItem(`${EVENT_SEATS_STORAGE_KEY_PREFIX}${targetId}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.eventSeats.set(targetId, parsed);
+            return parsed;
+          }
+        }
+      } catch {
+        // Safe fallback
+      }
+    }
+
+    // 4. Auto-seed if not found in memory or storage
+    const event = this._lookupEvent(targetId);
+    return this.seedEventSeats(event || { id: targetId });
+  }
+
   async getVenueLayout(_venueId) {
     await new Promise((resolve) => setTimeout(resolve, 5));
     return this.layout;
   }
 
-  async getSeatAvailability(_eventId) {
+  async getSeatAvailability(eventId) {
     await new Promise((resolve) => setTimeout(resolve, 5));
-    return [...this.seats];
+    const targetId = eventId || 'evt-symphony-2026';
+    const seats = this.getSeatsForEvent(targetId);
+    if (!seats || seats.length === 0) {
+      const fallbackEvent = this._lookupEvent(targetId) || { id: targetId };
+      return [...this.seedEventSeats(fallbackEvent)];
+    }
+    return [...seats];
   }
 
   /**
@@ -106,8 +274,10 @@ export class MockTicketingService {
    */
   async reserveSeats(eventId, seatIds, userId, holdDurationSeconds = 300) {
     await new Promise((resolve) => setTimeout(resolve, 10));
+    const targetEventId = eventId || 'evt-symphony-2026';
 
-    const requestedSeats = this.seats.filter((s) => seatIds.includes(s.id));
+    const currentSeats = this.getSeatsForEvent(targetEventId);
+    const requestedSeats = currentSeats.filter((s) => seatIds.includes(s.id));
 
     // Check if any requested seat is not available (collision check)
     const unavailableSeats = requestedSeats.filter((s) => s.status !== 'available');
@@ -125,20 +295,25 @@ export class MockTicketingService {
 
     // Atomic update
     const updatedSeats = [];
-    this.seats = this.seats.map((seat) => {
+    const newSeats = currentSeats.map((seat) => {
       if (seatIds.includes(seat.id)) {
         const updated = {
           ...seat,
           status: 'reserved',
           reservedBy: userId,
           reservedUntil: expiresAt,
-          eventId: eventId || seat.eventId || 'evt-symphony-2026',
+          eventId: targetEventId,
         };
         updatedSeats.push(updated);
         return updated;
       }
       return seat;
     });
+
+    this._saveEventSeats(targetEventId, newSeats);
+    if (targetEventId === 'evt-symphony-2026') {
+      this.seats = newSeats;
+    }
 
     // Notify realtime listeners
     this.notifySeatListeners(updatedSeats);
@@ -147,6 +322,7 @@ export class MockTicketingService {
       success: true,
       reserved_seat_ids: seatIds,
       reserved_until: expiresAt,
+      reserved_by: userId,
     };
   }
 
@@ -155,9 +331,11 @@ export class MockTicketingService {
    */
   async releaseSeats(eventId, seatIds, _userId) {
     await new Promise((resolve) => setTimeout(resolve, 10));
+    const targetEventId = eventId || 'evt-symphony-2026';
 
+    const currentSeats = this.getSeatsForEvent(targetEventId);
     const updatedSeats = [];
-    this.seats = this.seats.map((seat) => {
+    const newSeats = currentSeats.map((seat) => {
       if (seatIds.includes(seat.id) && seat.status === 'reserved') {
         const updated = {
           ...seat,
@@ -171,6 +349,11 @@ export class MockTicketingService {
       return seat;
     });
 
+    this._saveEventSeats(targetEventId, newSeats);
+    if (targetEventId === 'evt-symphony-2026') {
+      this.seats = newSeats;
+    }
+
     this.notifySeatListeners(updatedSeats);
 
     return {
@@ -181,7 +364,7 @@ export class MockTicketingService {
 
   /**
    * Release expired seat holds simulating PostgreSQL release_expired_seats RPC.
-   * Scans in-memory seats, finds any seat where status === 'reserved' and reservedUntil <= now,
+   * Scans seats, finds any seat where status === 'reserved' and reservedUntil <= now,
    * resets them to 'available', reservedBy = null, reservedUntil = null,
    * notifies realtime listeners, and returns count of released seats.
    */
@@ -191,20 +374,77 @@ export class MockTicketingService {
     const now = Date.now();
     const updatedSeats = [];
 
+    // Collect all event IDs to process
+    const eventIdsToSweep = new Set();
+    if (eventId) {
+      eventIdsToSweep.add(eventId);
+    } else {
+      for (const k of this.eventSeats.keys()) {
+        eventIdsToSweep.add(k);
+      }
+      eventIdsToSweep.add('evt-symphony-2026');
+      if (typeof window !== 'undefined' && window.localStorage) {
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith(EVENT_SEATS_STORAGE_KEY_PREFIX)) {
+            eventIdsToSweep.add(key.substring(EVENT_SEATS_STORAGE_KEY_PREFIX.length));
+          }
+        }
+      }
+    }
+
+    for (const targetId of eventIdsToSweep) {
+      const currentSeats = this.getSeatsForEvent(targetId);
+      let changed = false;
+      const newSeats = currentSeats.map((seat) => {
+        const isReserved = seat.status === 'reserved';
+        const isExpired = seat.reservedUntil && new Date(seat.reservedUntil).getTime() <= now;
+        const matchesEvent = !targetId || !seat.eventId || seat.eventId === targetId;
+        if (isReserved && isExpired && matchesEvent) {
+          changed = true;
+          const updated = {
+            ...seat,
+            status: 'available',
+            reservedBy: null,
+            reservedUntil: null,
+          };
+          updatedSeats.push(updated);
+          return updated;
+        }
+        return seat;
+      });
+
+      if (changed) {
+        this._saveEventSeats(targetId, newSeats);
+        if (targetId === 'evt-symphony-2026') {
+          this.seats = newSeats;
+        }
+      }
+    }
+
+    // Also sweep this.seats in case tests mutated this.seats directly
     this.seats = this.seats.map((seat) => {
       const isReserved = seat.status === 'reserved';
       const isExpired = seat.reservedUntil && new Date(seat.reservedUntil).getTime() <= now;
       const isTargetEvent = !eventId || !seat.eventId || seat.eventId === eventId;
 
       if (isReserved && isExpired && isTargetEvent) {
-        const updated = {
+        if (!updatedSeats.some((s) => s.id === seat.id && (s.eventId || 'evt-symphony-2026') === (seat.eventId || 'evt-symphony-2026'))) {
+          const updated = {
+            ...seat,
+            status: 'available',
+            reservedBy: null,
+            reservedUntil: null,
+          };
+          updatedSeats.push(updated);
+          return updated;
+        }
+        return {
           ...seat,
           status: 'available',
           reservedBy: null,
           reservedUntil: null,
         };
-        updatedSeats.push(updated);
-        return updated;
       }
       return seat;
     });
@@ -224,9 +464,11 @@ export class MockTicketingService {
    */
   async transferHold(eventId, seatIds, authenticatedUserId, anonymousSessionId) {
     await new Promise((resolve) => setTimeout(resolve, 5));
+    const targetEventId = eventId || 'evt-symphony-2026';
+    const currentSeats = this.getSeatsForEvent(targetEventId);
 
     const updatedSeats = [];
-    this.seats = this.seats.map((seat) => {
+    const newSeats = currentSeats.map((seat) => {
       if (
         seatIds.includes(seat.id) &&
         seat.status === 'reserved' &&
@@ -243,6 +485,10 @@ export class MockTicketingService {
     });
 
     if (updatedSeats.length > 0) {
+      this._saveEventSeats(targetEventId, newSeats);
+      if (targetEventId === 'evt-symphony-2026') {
+        this.seats = newSeats;
+      }
       this.notifySeatListeners(updatedSeats);
     }
 
@@ -272,9 +518,11 @@ export class MockTicketingService {
   }) {
     await new Promise((resolve) => setTimeout(resolve, 15));
     this._loadFromStorage();
+    const targetEventId = eventId || 'evt-symphony-2026';
 
-    // Retrieve requested seats
-    const bookedSeats = this.seats.filter((s) => seatIds.includes(s.id));
+    // Retrieve requested seats from event inventory
+    const currentSeats = this.getSeatsForEvent(targetEventId);
+    const bookedSeats = currentSeats.filter((s) => seatIds.includes(s.id));
     if (bookedSeats.length === 0 || bookedSeats.length !== seatIds.length) {
       return {
         success: false,
@@ -309,7 +557,7 @@ export class MockTicketingService {
 
     // Mark seats as permanently 'sold'
     const updatedSeats = [];
-    this.seats = this.seats.map((seat) => {
+    const newSeats = currentSeats.map((seat) => {
       if (seatIds.includes(seat.id)) {
         const updated = {
           ...seat,
@@ -317,12 +565,24 @@ export class MockTicketingService {
           reservedBy: null,
           reservedUntil: null,
           bookedBy: effectiveUserId,
+          eventId: targetEventId,
         };
         updatedSeats.push(updated);
         return updated;
       }
       return seat;
     });
+
+    this._saveEventSeats(targetEventId, newSeats);
+    if (targetEventId === 'evt-symphony-2026') {
+      this.seats = newSeats;
+    }
+
+    // Resolve event details for rich tickets
+    const evtData = this._lookupEvent(targetEventId);
+    const eventTitle = evtData?.title || 'Grand Symphony Concert';
+    const eventDate = evtData?.date || 'Saturday, Nov 14, 2026 • 8:00 PM';
+    const venueName = evtData?.venue || 'Grand Symphony Hall, Auditorium';
 
     // Create unique ticket records with HMAC-SHA256 signatures
     const issuedTickets = [];
@@ -331,7 +591,7 @@ export class MockTicketingService {
       const rawTicket = {
         id: `tkt_${Math.random().toString(36).substring(2, 10)}`,
         booking_id: bookingId,
-        event_id: eventId,
+        event_id: targetEventId,
         seat_id: seat.id,
         user_id: effectiveUserId,
         anonymous_session_id: anonSessionId,
@@ -346,9 +606,9 @@ export class MockTicketingService {
         is_used: false,
         scanned_at: null,
         created_at: nowISO,
-        event_title: 'Grand Symphony Concert',
-        event_date: 'Saturday, Nov 14, 2026 • 8:00 PM',
-        venue_name: 'Grand Symphony Hall, Auditorium',
+        event_title: eventTitle,
+        event_date: eventDate,
+        venue_name: venueName,
       };
 
       const signedTicket = await cryptoSigner.signTicketRecord(rawTicket);
@@ -358,7 +618,7 @@ export class MockTicketingService {
 
     const booking = {
       id: bookingId,
-      event_id: eventId,
+      event_id: targetEventId,
       user_id: effectiveUserId,
       anonymous_session_id: anonSessionId,
       attendee_name: attendeeName,
@@ -583,7 +843,6 @@ export class MockTicketingService {
     return res;
   }
 
-
   /**
    * Realtime change listener subscription simulating Supabase Realtime channel
    */
@@ -605,10 +864,12 @@ export class MockTicketingService {
   }
 
   /**
-   * Helper to reset test mock state
+   * Helper to reset test mock state and clear all per-event seats
    */
   resetState() {
     this.seats = generateSeats(mockVenueLayout);
+    this.eventSeats = new Map();
+    this.eventSeats.set('evt-symphony-2026', this.seats);
     this.listeners.clear();
     this.bookings = [];
     this.tickets = [];
@@ -617,6 +878,15 @@ export class MockTicketingService {
         window.sessionStorage.clear();
       }
       if (window.localStorage) {
+        const keysToRemove = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith(EVENT_SEATS_STORAGE_KEY_PREFIX)) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((key) => window.localStorage.removeItem(key));
+
         window.localStorage.removeItem(MOCK_TICKETS_STORAGE_KEY);
         window.localStorage.removeItem(MOCK_BOOKINGS_STORAGE_KEY);
         window.localStorage.removeItem('ticketcraft_anon_session_id');
@@ -626,4 +896,4 @@ export class MockTicketingService {
 }
 
 export const mockTicketingService = new MockTicketingService();
-
+export const seedEventSeats = (event) => mockTicketingService.seedEventSeats(event);

@@ -193,10 +193,11 @@ describe('📱 Mobile Responsiveness Overhaul Suite', () => {
   describe('4. Header & Navigation Mobile Menu Drawer', () => {
     it('MainNavbar renders mobile menu toggle and toggles drawer on mobile screens', () => {
       const onSelectView = vi.fn();
+      mockAuth = new MockAuthService({ id: 'usr-attendee', email: 'attendee@example.com', role: 'attendee' });
 
       render(
         <LanguageProvider>
-          <AuthProvider authService={mockAuth}>
+          <AuthProvider customAuthService={mockAuth}>
             <MainNavbar onSelectView={onSelectView} />
           </AuthProvider>
         </LanguageProvider>

@@ -25,7 +25,14 @@ export class GateValidationService {
    * @param {string} [params.gateName] - Active gate name (e.g., Gate A, VIP)
    * @returns {Promise<Object>} Verification outcome
    */
-  async validateTicket({ rawScan, eventId, gateName = 'Main Gate' }) {
+  async validateTicket({
+    rawScan,
+    eventId,
+    gateName = 'Main Gate',
+    currentUser,
+    gateStaffUser,
+    assignedEventId,
+  }) {
     if (!rawScan || typeof rawScan !== 'string') {
       return {
         success: false,
@@ -40,6 +47,12 @@ export class GateValidationService {
     let ticketCode = trimmed;
     let signature = null;
     let payload = null;
+
+    const staffAssignedEventId =
+      assignedEventId ||
+      gateStaffUser?.assignedEventId ||
+      currentUser?.assignedEventId ||
+      null;
 
     // Check if rawScan is JSON QR payload
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
@@ -56,6 +69,20 @@ export class GateValidationService {
       ticketCode = payload.code || payload.ticket_code || payload.tid || trimmed;
       signature = payload.sig;
 
+      // Gate staff user event-scoping verification
+      if (staffAssignedEventId && payload.eid && payload.eid !== staffAssignedEventId) {
+        return {
+          success: false,
+          valid: false,
+          status: 'REJECTED',
+          reason: 'EVENT_MISMATCH',
+          message: 'غير مصرح: التذكرة تابعة لفعالية أخرى',
+          message_en: 'Unauthorized: Ticket belongs to a different event',
+          ticket_code: ticketCode,
+          ticket_event_id: payload.eid,
+        };
+      }
+
       // Check event match if eventId provided
       if (eventId && payload.eid && payload.eid !== eventId) {
         return {
@@ -67,6 +94,20 @@ export class GateValidationService {
           ticket_code: ticketCode,
         };
       }
+    }
+
+    // Gate staff event scoping check when eventId is provided
+    if (staffAssignedEventId && eventId && eventId !== staffAssignedEventId) {
+      return {
+        success: false,
+        valid: false,
+        status: 'REJECTED',
+        reason: 'EVENT_MISMATCH',
+        message: 'غير مصرح: التذكرة تابعة لفعالية أخرى',
+        message_en: 'Unauthorized: Ticket belongs to a different event',
+        ticket_code: ticketCode,
+        ticket_event_id: eventId,
+      };
     }
 
     // Determine connectivity
@@ -114,8 +155,15 @@ export class GateValidationService {
         // If remote database returned error, network error, or ticket not found in remote database,
         // check offline/local cache (which holds freshly booked tickets from this or previous sessions)
         console.warn(`[GateValidationService] Online check returned '${result?.status}', checking local cache for:`, ticketCode);
-        const offlineFallback = await this._validateOffline({ ticketCode, signature, payload, eventId, gateName });
-        if (offlineFallback.valid || offlineFallback.status === 'ALREADY_USED') {
+        const offlineFallback = await this._validateOffline({
+          ticketCode,
+          signature,
+          payload,
+          eventId,
+          gateName,
+          staffAssignedEventId,
+        });
+        if (offlineFallback.valid || offlineFallback.status === 'ALREADY_USED' || offlineFallback.status === 'REJECTED') {
           return offlineFallback;
         }
 
@@ -143,16 +191,47 @@ export class GateValidationService {
     }
 
     // 2. OFFLINE FALLBACK: Local HMAC verification + local state cache + sync queue
-    return await this._validateOffline({ ticketCode, signature, payload, eventId, gateName });
+    return await this._validateOffline({
+      ticketCode,
+      signature,
+      payload,
+      eventId,
+      gateName,
+      staffAssignedEventId,
+    });
   }
 
   /**
    * Offline validation fallback using client-side Web Crypto and IndexedDB
    * @private
    */
-  async _validateOffline({ ticketCode, signature, payload, eventId, gateName }) {
+  async _validateOffline({
+    ticketCode,
+    signature,
+    payload,
+    eventId,
+    gateName,
+    staffAssignedEventId,
+  }) {
     console.log('[GateValidationService] Running offline/local verification for:', ticketCode);
     const cachedTicket = await offlineStorage.getCachedTicket(ticketCode);
+
+    if (staffAssignedEventId) {
+      const ticketEventId = cachedTicket?.event_id || cachedTicket?.eventId || payload?.eid;
+      if (ticketEventId && ticketEventId !== staffAssignedEventId) {
+        return {
+          success: false,
+          valid: false,
+          status: 'REJECTED',
+          reason: 'EVENT_MISMATCH',
+          message: 'غير مصرح: التذكرة تابعة لفعالية أخرى',
+          message_en: 'Unauthorized: Ticket belongs to a different event',
+          ticket_code: ticketCode,
+          ticket_event_id: ticketEventId,
+          isOffline: true,
+        };
+      }
+    }
 
     // If we have full payload with HMAC signature, verify cryptographically
     if (payload && payload.sig) {

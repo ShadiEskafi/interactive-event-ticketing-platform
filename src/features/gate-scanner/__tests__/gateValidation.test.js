@@ -280,4 +280,51 @@ describe('PWA Gate Scanner Validation Engine (FEAT-GATE-SCANNER-05)', () => {
     expect(result.ticket_code).toBe('TKT-3CJNH');
     expect(result.attendee_name).toBe('VIP Guest');
   });
+
+  it('Scenario 9: Gate staff with assignedEventId rejects tickets belonging to a different event with REJECTED and EVENT_MISMATCH', async () => {
+    // Ticket belongs to 'evt-symphony-2026', but gate staff is scoped to 'evt-jazz-fest-2026'
+    const gateStaffUser = {
+      id: 'usr-gate-99',
+      name: 'Scoped Guard',
+      role: 'gate_staff',
+      assignedEventId: 'evt-jazz-fest-2026',
+    };
+
+    const result = await validationService.validateTicket({
+      rawScan: validQRPayloadString,
+      eventId: 'evt-symphony-2026',
+      gateName: 'Turnstile A',
+      gateStaffUser,
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.status).toBe('REJECTED');
+    expect(result.reason).toBe('EVENT_MISMATCH');
+    expect(result.message).toBe('غير مصرح: التذكرة تابعة لفعالية أخرى');
+    expect(result.message_en).toBe('Unauthorized: Ticket belongs to a different event');
+
+    // Also test direct assignedEventId parameter
+    const directResult = await validationService.validateTicket({
+      rawScan: validQRPayloadString,
+      eventId: 'evt-symphony-2026',
+      gateName: 'Turnstile A',
+      assignedEventId: 'evt-opera-2026',
+    });
+
+    expect(directResult.status).toBe('REJECTED');
+    expect(directResult.reason).toBe('EVENT_MISMATCH');
+    expect(directResult.message).toBe('غير مصرح: التذكرة تابعة لفعالية أخرى');
+    expect(directResult.message_en).toBe('Unauthorized: Ticket belongs to a different event');
+
+    // When assignedEventId matches ticket event, validation succeeds
+    const matchingResult = await validationService.validateTicket({
+      rawScan: validQRPayloadString,
+      eventId: 'evt-symphony-2026',
+      gateName: 'Turnstile A',
+      assignedEventId: 'evt-symphony-2026',
+    });
+
+    expect(matchingResult.valid).toBe(true);
+    expect(matchingResult.status).toBe('ENTRY_GRANTED');
+  });
 });

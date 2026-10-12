@@ -26,3 +26,4 @@ export const ticketingService = isProductionSupabase
   : mockTicketingService;
 
 export { supabaseTicketingService, mockTicketingService };
+export { EVENT_SEATS_STORAGE_KEY_PREFIX, seedEventSeats } from '../features/seatmap/services/mockTicketingService';
