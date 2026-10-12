@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { adminService } from '../services/adminService';
 import { ticketingService } from '../../../services';
 
@@ -34,6 +34,24 @@ export function useAdminData({
   const [isFlushing, setIsFlushing] = useState(false);
   const [notification, setNotification] = useState(null);
 
+  // On mount, load users and sync latest from Supabase profiles
+  useEffect(() => {
+    let isMounted = true;
+    if (typeof adminService.fetchUsersFromSupabase === 'function') {
+      adminService
+        .fetchUsersFromSupabase()
+        .then((synced) => {
+          if (isMounted && Array.isArray(synced) && synced.length > 0) {
+            setUsers(synced);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Synchronize data when an event or action updates
   const refreshData = useCallback(
     (targetEventId = selectedEventId) => {
@@ -51,6 +69,16 @@ export function useAdminData({
         setOrganizerStats(adminService.getOrganizerStats(null, currentEventId));
         setAttendees(adminService.getEventAttendees(currentEventId));
         setUsers(adminService.getUsers());
+        if (typeof adminService.fetchUsersFromSupabase === 'function') {
+          adminService
+            .fetchUsersFromSupabase()
+            .then((synced) => {
+              if (Array.isArray(synced) && synced.length > 0) {
+                setUsers(synced);
+              }
+            })
+            .catch(() => {});
+        }
         setAuditLogs(adminService.getAuditLogs());
         setConcurrencyStats(adminService.getConcurrencyStats(currentEventId));
       } catch (err) {
@@ -202,6 +230,7 @@ export function useAdminData({
   const handleCreateGateStaffUser = useCallback(
     (staffData) => {
       const created = adminService.createGateStaffUser(staffData);
+      setUsers(adminService.getUsers());
       refreshData();
       setNotification({
         type: 'success',
@@ -215,6 +244,7 @@ export function useAdminData({
   const handleCreateUser = useCallback(
     (userData) => {
       const created = adminService.createUser(userData);
+      setUsers(adminService.getUsers());
       refreshData();
       setNotification({
         type: 'success',
