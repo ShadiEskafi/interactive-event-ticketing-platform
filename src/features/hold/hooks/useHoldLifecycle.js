@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { mockTicketingService } from '../../seatmap/services/mockTicketingService';
+import { ticketingService } from '../../../services';
 
 /**
  * Lifecycle hook guarding active holds against sudden tab closures or navigation away.
- * Employs navigator.sendBeacon or emergency release call to mockTicketingService.
+ * Employs navigator.sendBeacon or emergency release call to ticketingService.
  */
 export function useHoldLifecycle({ eventId, seatIds, userId, isActive = true }) {
   useEffect(() => {
@@ -23,7 +23,7 @@ export function useHoldLifecycle({ eventId, seatIds, userId, isActive = true }) 
 
       // 2. Immediate cleanup call to mock ticketing service
       try {
-        mockTicketingService.releaseSeats(eventId, seatIds, userId);
+        ticketingService.releaseSeats(eventId, seatIds, userId);
       } catch {
         // Safe unload fallback
       }

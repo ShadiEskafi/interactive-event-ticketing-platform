@@ -1,7 +1,6 @@
 import { parseQRPayload } from '../../tickets/utils/qrPayload';
 import { cryptoSigner } from '../../tickets/services/cryptoSigner';
 import { supabaseTicketingService } from '../../../services/supabaseTicketingService';
-import { mockTicketingService } from '../../../services/mockTicketingService';
 import { offlineStorage } from './offlineStorage';
 
 /**
@@ -11,8 +10,6 @@ import { offlineStorage } from './offlineStorage';
 export class GateValidationService {
   constructor(options = {}) {
     this.primaryService = options.primaryService || supabaseTicketingService;
-    this.mockService = options.mockService || mockTicketingService;
-    this.useMock = options.useMock ?? false;
   }
 
   /**
@@ -116,22 +113,12 @@ export class GateValidationService {
     // 1. ONLINE-FIRST: Try live atomic verification
     if (isOnline) {
       try {
-        let result;
-        if (this.useMock) {
-          result = await this.mockService.validateAndClaimTicket({
-            ticketCode,
-            signature,
-            eventId,
-            gateName,
-          });
-        } else {
-          result = await this.primaryService.validateAndClaimTicket({
-            ticketCode,
-            signature,
-            eventId,
-            gateName,
-          });
-        }
+        const result = await this.primaryService.validateAndClaimTicket({
+          ticketCode,
+          signature,
+          eventId,
+          gateName,
+        });
 
         // If primary service returned a conclusive result (valid or definitive duplicate/mismatch/tampered)
         if (result && (result.valid || result.status === 'ALREADY_USED' || result.status === 'EVENT_MISMATCH' || result.status === 'INVALID_SIGNATURE')) {

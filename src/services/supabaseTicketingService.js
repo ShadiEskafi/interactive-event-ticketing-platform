@@ -19,14 +19,33 @@ class SupabaseTicketingService {
   }
 
   /**
-   * Fetches live seat availability directly from Supabase PostgreSQL
+   * Fetches live seat availability directly from Supabase PostgreSQL.
+   * If an event has no seats yet in the database, automatically provisions its 520 seats on the fly.
    */
   async getSeatAvailability(eventId = 'evt-symphony-2026') {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('seats')
       .select('*')
       .eq('event_id', eventId)
       .order('id', { ascending: true });
+
+    // Defensive auto-healing: If seats for this event are not yet populated in PostgreSQL
+    if (!error && (!data || data.length === 0)) {
+      try {
+        await this.createEventWithSeats({ id: eventId });
+        const refetched = await supabase
+          .from('seats')
+          .select('*')
+          .eq('event_id', eventId)
+          .order('id', { ascending: true });
+        if (refetched.data && refetched.data.length > 0) {
+          data = refetched.data;
+          error = null;
+        }
+      } catch (autoSeedErr) {
+        console.warn('[SupabaseTicketingService] Auto-healing seats failed:', autoSeedErr);
+      }
+    }
 
     if (error || !data) {
       console.error('Error fetching seats from Supabase:', error);
@@ -608,7 +627,7 @@ class SupabaseTicketingService {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'seats',
           filter: `event_id=eq.${eventId}`,
@@ -619,7 +638,8 @@ class SupabaseTicketingService {
               id: payload.new.id,
               rowLabel: payload.new.row_label,
               seatNumber: payload.new.seat_number,
-              category: payload.new.category,
+              category: payload.new.category || payload.new.section,
+              section: payload.new.section || payload.new.category,
               price: parseFloat(payload.new.price),
               status: payload.new.status,
               reservedBy: payload.new.reserved_by,
@@ -640,6 +660,92 @@ class SupabaseTicketingService {
     return () => {
       supabase.removeChannel(channel);
     };
+  }
+
+  /**
+   * Invokes seed_event_seats RPC in PostgreSQL to generate 520 seats
+   */
+  async seedEventSeats(eventData) {
+    if (!eventData || !eventData.id) return null;
+    const eventId = eventData.id;
+    const vipPrice = Number(eventData.vipPrice) || 150;
+    const regularPrice = Number(eventData.regularPrice) || 85;
+    const balconyPrice = Number(eventData.balconyPrice) || 45;
+    try {
+      const { data, error } = await supabase.rpc('seed_event_seats', {
+        p_event_id: eventId,
+        p_vip_price: vipPrice,
+        p_regular_price: regularPrice,
+        p_balcony_price: balconyPrice,
+      });
+      if (error) {
+        console.warn('[SupabaseTicketingService] seed_event_seats error:', error);
+      }
+      return data;
+    } catch (err) {
+      console.warn('[SupabaseTicketingService] seedEventSeats exception:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Atomically creates or updates an event in Supabase and provisions its 520 seats
+   */
+  async createEventWithSeats(eventData) {
+    if (!eventData || !eventData.id) return null;
+    const eventId = eventData.id;
+    const title = eventData.title || 'New Interactive Event';
+    const description = eventData.description || '';
+    const venueName = eventData.venue || eventData.venue_name || 'Grand Symphony Hall';
+    const vipPrice = Number(eventData.vipPrice ?? eventData.tierPricing?.vip ?? 150);
+    const regularPrice = Number(eventData.regularPrice ?? eventData.tierPricing?.regular ?? 85);
+    const balconyPrice = Number(eventData.balconyPrice ?? eventData.tierPricing?.balcony ?? 45);
+    const status = eventData.status || 'published';
+    const dateTime = eventData.date_time || eventData.date || new Date().toISOString();
+    const category = eventData.category || 'Concert';
+
+    try {
+      const { data, error } = await supabase.rpc('create_event_with_seats', {
+        p_id: eventId,
+        p_title: title,
+        p_description: description,
+        p_venue_name: venueName,
+        p_vip_price: vipPrice,
+        p_regular_price: regularPrice,
+        p_balcony_price: balconyPrice,
+        p_status: status,
+        p_date_time: dateTime,
+        p_created_by: null,
+        p_category: category,
+      });
+
+      if (error) {
+        console.warn('[SupabaseTicketingService] create_event_with_seats RPC error, falling back to direct upsert:', error);
+        await supabase.from('events').upsert({
+          id: eventId,
+          title,
+          description,
+          venue_name: venueName,
+          vip_price: vipPrice,
+          regular_price: regularPrice,
+          balcony_price: balconyPrice,
+          status,
+          date_time: dateTime,
+          category,
+        });
+        await this.seedEventSeats(eventData);
+      }
+      return data;
+    } catch (err) {
+      console.warn('[SupabaseTicketingService] createEventWithSeats exception:', err);
+      return null;
+    }
+  }
+
+  resetState() {
+    this.tickets = [];
+    this.bookings = [];
+    this.seats = [];
   }
 
   /**

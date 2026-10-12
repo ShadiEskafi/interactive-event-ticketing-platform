@@ -59,23 +59,7 @@ export class MockTicketingService {
   _loadFromStorage() {
     if (typeof window === 'undefined' || !window.localStorage) return;
     try {
-      // Hydrate all cached event seat lists
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const key = window.localStorage.key(i);
-        if (key && key.startsWith(EVENT_SEATS_STORAGE_KEY_PREFIX)) {
-          const eventId = key.substring(EVENT_SEATS_STORAGE_KEY_PREFIX.length);
-          const val = window.localStorage.getItem(key);
-          if (val) {
-            const parsed = JSON.parse(val);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              this.eventSeats.set(eventId, parsed);
-              if (eventId === 'evt-symphony-2026') {
-                this.seats = parsed;
-              }
-            }
-          }
-        }
-      }
+      // Zero localStorage reading for seats - purely in-memory / Supabase driven
 
       const storedTickets = window.localStorage.getItem(MOCK_TICKETS_STORAGE_KEY);
       if (storedTickets) {
@@ -130,29 +114,6 @@ export class MockTicketingService {
 
   _lookupEvent(eventId) {
     if (!eventId) return null;
-    if (typeof window !== 'undefined' && window.localStorage) {
-      try {
-        const customEvents = window.localStorage.getItem('ticketcraft_custom_events');
-        if (customEvents) {
-          const list = JSON.parse(customEvents);
-          if (Array.isArray(list)) {
-            const found = list.find((e) => e.id === eventId);
-            if (found) return found;
-          }
-        }
-      } catch {
-        // Safe fallback
-      }
-      try {
-        const overrides = window.localStorage.getItem('ticketcraft_event_overrides');
-        if (overrides) {
-          const obj = JSON.parse(overrides);
-          if (obj && obj[eventId]) return obj[eventId];
-        }
-      } catch {
-        // Safe fallback
-      }
-    }
     if (Array.isArray(FEATURED_EVENTS)) {
       const featured = FEATURED_EVENTS.find((e) => e.id === eventId);
       if (featured) return featured;
@@ -207,6 +168,13 @@ export class MockTicketingService {
 
     this._saveEventSeats(event.id, generated);
     return generated;
+  }
+
+  /**
+   * Generates and persists 520 seats for a newly created event (mirrors Supabase service)
+   */
+  createEventWithSeats(event) {
+    return this.seedEventSeats(event);
   }
 
   /**

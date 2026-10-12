@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { adminService } from '../services/adminService';
+import { ticketingService } from '../../../services';
 
 /**
  * useAdminData Hook
@@ -83,6 +84,13 @@ export function useAdminData({
   const handleCreateEvent = useCallback(
     (eventData) => {
       const created = adminService.createEvent(eventData);
+      if (created && typeof ticketingService.createEventWithSeats === 'function') {
+        try {
+          ticketingService.createEventWithSeats(created);
+        } catch (err) {
+          console.warn('[useAdminData] Error syncing event to Supabase:', err);
+        }
+      }
       const newId = created?.id || selectedEventId;
       refreshData(newId);
       if (created?.id) {

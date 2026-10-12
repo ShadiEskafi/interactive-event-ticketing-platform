@@ -64,19 +64,41 @@ class AuthService {
     }
   }
 
+  async _fetchProfile(userId) {
+    if (!userId || !this.useSupabase) return null;
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      return data || null;
+    } catch {
+      return null;
+    }
+  }
+
   async getSession() {
     if (this.useSupabase) {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (!error && data?.session) {
-          const user = data.session.user;
-          if (user && this.isUserInvalidated(user.id)) {
-            this.clearUserInvalidation(user.id);
+          const rawUser = data.session.user;
+          if (rawUser && this.isUserInvalidated(rawUser.id)) {
+            this.clearUserInvalidation(rawUser.id);
             await this.signOut();
             return { session: null, user: null, invalidated: true };
           }
+          const profile = await this._fetchProfile(rawUser.id);
+          const effectiveRole = profile?.role || rawUser.role || rawUser.user_metadata?.role || (rawUser.email === 'shadieskafi@gmail.com' ? 'super_admin' : 'attendee');
+          const user = {
+            ...rawUser,
+            role: effectiveRole,
+            assignedEventId: profile?.assigned_event_id || null,
+            assignedDate: profile?.assigned_date || null,
+          };
           this.currentUser = user;
-          return { session: data.session, user: data.session.user };
+          return { session: data.session, user };
         }
       } catch {
         // Safe fallback
@@ -132,9 +154,13 @@ class AuthService {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (!error && data?.user) {
+          const profile = await this._fetchProfile(data.user.id);
+          const effectiveRole = profile?.role || data.user.role || data.user.user_metadata?.role || (data.user.email === 'shadieskafi@gmail.com' ? 'super_admin' : 'attendee');
           const user = {
             ...data.user,
-            role: data.user.role || data.user.user_metadata?.role || 'attendee',
+            role: effectiveRole,
+            assignedEventId: profile?.assigned_event_id || null,
+            assignedDate: profile?.assigned_date || null,
           };
           this.currentUser = user;
           this.notifyAuthState(user);

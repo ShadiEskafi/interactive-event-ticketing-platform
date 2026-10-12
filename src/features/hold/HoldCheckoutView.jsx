@@ -3,7 +3,7 @@ import { HoldTimer } from './HoldTimer';
 import { SessionExpiredModal } from './SessionExpiredModal';
 import { useHoldLifecycle } from './hooks/useHoldLifecycle';
 import { formatCurrency } from '../seatmap/utils/formatters';
-import { ticketingService as mockTicketingService } from '../../services';
+import { ticketingService } from '../../services';
 
 /**
  * Hold Checkout View Container
@@ -47,7 +47,7 @@ export function HoldCheckoutView({
     try {
       const seatIds = selectedSeats.map((s) => s.id);
       const effectiveUserId = user?.id || reservationData?.userId;
-      const result = await mockTicketingService.confirmBooking({
+      const result = await ticketingService.confirmBooking({
         eventId,
         seatIds,
         userId: effectiveUserId,
