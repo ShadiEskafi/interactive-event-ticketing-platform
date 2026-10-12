@@ -3,6 +3,7 @@ import { SeatMap } from './SeatMap';
 import { CartSummary } from './components/CartSummary';
 import { useSeatSelection } from './hooks/useSeatSelection';
 import { ticketingService as mockTicketingService } from '../../services';
+import { adminService } from '../admin/services/adminService';
 import {
   useSeatHold,
   useRealtimeSeats,
@@ -33,13 +34,14 @@ export function EventBookingPage({
 }) {
   const [layout, setLayout] = useState(null);
   const [seats, setSeats] = useState([]);
+  const [eventData, setEventData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState('map'); // 'map' | 'checkout' | 'receipt'
   const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [authedAttendee, setAuthedAttendee] = useState(null);
 
   const {
@@ -94,13 +96,41 @@ export function EventBookingPage({
         } catch {
           // Safe sweep fallback
         }
+        // Fetch accurate event details from adminService
+        let fetchedEvent = null;
+        try {
+          fetchedEvent = adminService.getEventById(eventId);
+        } catch {
+          // Safe fallback
+        }
+        if (isMounted) {
+          setEventData(fetchedEvent);
+        }
+
         const [venueLayout, seatData] = await Promise.all([
           mockTicketingService.getVenueLayout(venueId),
           mockTicketingService.getSeatAvailability(eventId),
         ]);
         if (isMounted) {
-          setLayout(venueLayout);
-          setSeats(seatData);
+          let effectiveLayout = venueLayout;
+          if (venueLayout && fetchedEvent) {
+            const pVip = Number(fetchedEvent.vipPrice ?? fetchedEvent.tierPricing?.vip ?? 150);
+            const pReg = Number(fetchedEvent.regularPrice ?? fetchedEvent.tierPricing?.regular ?? 85);
+            const pBal = Number(fetchedEvent.balconyPrice ?? fetchedEvent.tierPricing?.balcony ?? 45);
+
+            effectiveLayout = {
+              ...venueLayout,
+              sections: venueLayout.sections.map((sec) => {
+                let price = pReg;
+                if (sec.id === 'sec-vip' || sec.category === 'VIP') price = pVip;
+                else if (sec.id === 'sec-balc' || sec.category === 'Balcony') price = pBal;
+                return { ...sec, defaultPrice: price };
+              }),
+            };
+          }
+
+          setLayout(effectiveLayout);
+          setSeats(seatData || []);
 
           // Hold Hydration on Mount: check if pending_booking or active hold exists in sessionStorage
           const pending = getStoredPendingBooking();
@@ -325,7 +355,11 @@ export function EventBookingPage({
               </button>
             </div>
           )}
-          <h1 className="event-title">{eventName || 'Grand Symphony Concert'}</h1>
+          <h1 className="event-title">
+            {language === 'ar' && eventData?.title_ar
+              ? eventData.title_ar
+              : (eventData?.title || eventName || 'Grand Symphony Concert')}
+          </h1>
           <div className="event-meta">
             <span className="event-meta-item">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -334,14 +368,18 @@ export function EventBookingPage({
                 <line x1="8" y1="2" x2="8" y2="6" />
                 <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
-              Saturday, Nov 14, 2026 &bull; 8:00 PM
+              {language === 'ar' && eventData?.date_ar
+                ? eventData.date_ar
+                : (eventData?.date || 'Saturday, Nov 14, 2026 • 8:00 PM')}
             </span>
             <span className="event-meta-item">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
-              {layout?.name || 'Grand Symphony Hall'} &bull; Auditorium
+              {language === 'ar' && eventData?.venue_ar
+                ? eventData.venue_ar
+                : (eventData?.venue || `${layout?.name || 'Grand Symphony Hall'} • Auditorium`)}
             </span>
           </div>
         </div>

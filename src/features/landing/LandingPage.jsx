@@ -1,6 +1,17 @@
 import { useState, useMemo } from 'react';
 import { FEATURED_EVENTS } from './featuredEvents';
+import { adminService } from '../admin/services/adminService';
 import { useLanguage } from '../../context';
+import {
+  ZapIcon,
+  ClockIcon,
+  ShieldIcon,
+  SearchIcon,
+  TicketIcon,
+  CalendarIcon,
+  MapPinIcon,
+  SparklesIcon,
+} from '../../components/common/Icons';
 import './LandingPage.css';
 
 const CATEGORIES = [
@@ -11,13 +22,30 @@ const CATEGORIES = [
   { key: 'Festivals', labelKey: 'hero.categories.festivals', fallback: 'Festivals' },
 ];
 
-export function LandingPage({ onSelectEvent, onNavigateToTickets }) {
+export function LandingPage({ events: propEvents, onSelectEvent, onNavigateToTickets }) {
   const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
+  const allEvents = useMemo(() => {
+    if (propEvents && Array.isArray(propEvents) && propEvents.length > 0) {
+      return propEvents;
+    }
+    try {
+      if (adminService && typeof adminService.getAllEvents === 'function') {
+        const dynamicList = adminService.getAllEvents();
+        if (Array.isArray(dynamicList) && dynamicList.length > 0) {
+          return dynamicList;
+        }
+      }
+    } catch {
+      // Safe fallback
+    }
+    return FEATURED_EVENTS;
+  }, [propEvents]);
+
   const filteredEvents = useMemo(() => {
-    return FEATURED_EVENTS.filter((event) => {
+    return allEvents.filter((event) => {
       const matchesCategory =
         selectedCategory === 'All' || event.category === selectedCategory;
       const q = searchQuery.trim().toLowerCase();
@@ -33,7 +61,7 @@ export function LandingPage({ onSelectEvent, onNavigateToTickets }) {
         (event.description_ar && event.description_ar.includes(q));
       return matchesCategory && matchesSearch;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [allEvents, searchQuery, selectedCategory]);
 
   const handleEventClick = (event) => {
     if (onSelectEvent) {
@@ -87,7 +115,9 @@ export function LandingPage({ onSelectEvent, onNavigateToTickets }) {
           {/* Live Platform Metric Pills */}
           <div className="hero-metrics" role="region" aria-label="Live Platform Metrics">
             <div className="metric-pill" data-testid="metric-pill-seats">
-              <span className="metric-icon" aria-hidden="true">⚡</span>
+              <span className="metric-icon" aria-hidden="true">
+                <ZapIcon size={18} />
+              </span>
               <div className="metric-info">
                 <span className="metric-value">{t('hero.metrics.seats_val', '520')}</span>
                 <span className="metric-label">{t('hero.metrics.seats_label', 'Realtime Seats')}</span>
@@ -95,7 +125,9 @@ export function LandingPage({ onSelectEvent, onNavigateToTickets }) {
             </div>
 
             <div className="metric-pill" data-testid="metric-pill-lock">
-              <span className="metric-icon" aria-hidden="true">⏱️</span>
+              <span className="metric-icon" aria-hidden="true">
+                <ClockIcon size={18} />
+              </span>
               <div className="metric-info">
                 <span className="metric-value">{t('hero.metrics.lock_val', '300s')}</span>
                 <span className="metric-label">{t('hero.metrics.lock_label', 'Pessimistic Atomic Lock')}</span>
@@ -103,7 +135,9 @@ export function LandingPage({ onSelectEvent, onNavigateToTickets }) {
             </div>
 
             <div className="metric-pill" data-testid="metric-pill-qr">
-              <span className="metric-icon" aria-hidden="true">🛡️</span>
+              <span className="metric-icon" aria-hidden="true">
+                <ShieldIcon size={18} />
+              </span>
               <div className="metric-info">
                 <span className="metric-value">{t('hero.metrics.qr_val', 'HMAC-SHA256')}</span>
                 <span className="metric-label">{t('hero.metrics.qr_label', 'Signed QR Passes')}</span>
@@ -114,7 +148,9 @@ export function LandingPage({ onSelectEvent, onNavigateToTickets }) {
           {/* Live Search & Category Filter Controls */}
           <div className="hero-search-filter-card" role="search" aria-label="Event search and filters">
             <div className="search-input-wrapper">
-              <span className="search-input-icon" aria-hidden="true">🔍</span>
+              <span className="search-input-icon" aria-hidden="true">
+                <SearchIcon size={18} />
+              </span>
               <input
                 type="text"
                 className="search-input"
@@ -181,7 +217,9 @@ export function LandingPage({ onSelectEvent, onNavigateToTickets }) {
 
           {filteredEvents.length === 0 ? (
             <div className="events-empty-state" data-testid="events-empty-state">
-              <span className="empty-state-icon" aria-hidden="true">🎟️</span>
+              <span className="empty-state-icon" aria-hidden="true">
+                <TicketIcon size={32} />
+              </span>
               <h3>{t('events.empty_title', 'No Events Found')}</h3>
               <p>
                 {t('events.empty_desc', "We couldn't find any events matching your search.")}
@@ -216,21 +254,27 @@ export function LandingPage({ onSelectEvent, onNavigateToTickets }) {
                     </div>
 
                     <div className="banner-visual-overlay">
-                      <span className="banner-decor-icon" aria-hidden="true">🎼</span>
+                      <span className="banner-decor-icon" aria-hidden="true">
+                        <SparklesIcon size={18} />
+                      </span>
                       <span className="banner-capacity-pill">{getEventCapacity(primaryEvent)}</span>
                     </div>
                   </div>
 
                   <div className="event-card-body">
                     <div className="event-date-row">
-                      <span className="event-calendar-icon" aria-hidden="true">📅</span>
+                      <span className="event-calendar-icon" aria-hidden="true">
+                        <CalendarIcon size={16} />
+                      </span>
                       <span className="event-date-text">{getEventDate(primaryEvent)}</span>
                     </div>
 
                     <h3 className="event-card-title">{getEventTitle(primaryEvent)}</h3>
 
                     <div className="event-venue-row">
-                      <span className="event-venue-icon" aria-hidden="true">📍</span>
+                      <span className="event-venue-icon" aria-hidden="true">
+                        <MapPinIcon size={16} />
+                      </span>
                       <span className="event-venue-text">{getEventVenue(primaryEvent)}</span>
                     </div>
 
@@ -280,21 +324,27 @@ export function LandingPage({ onSelectEvent, onNavigateToTickets }) {
                       <span className="category-badge">{getEventCategory(event)}</span>
                     </div>
                     <div className="banner-visual-overlay">
-                      <span className="banner-decor-icon" aria-hidden="true">✨</span>
+                      <span className="banner-decor-icon" aria-hidden="true">
+                        <SparklesIcon size={18} />
+                      </span>
                       <span className="banner-capacity-pill">{getEventCapacity(event)}</span>
                     </div>
                   </div>
 
                   <div className="event-card-body">
                     <div className="event-date-row">
-                      <span className="event-calendar-icon" aria-hidden="true">📅</span>
+                      <span className="event-calendar-icon" aria-hidden="true">
+                        <CalendarIcon size={16} />
+                      </span>
                       <span className="event-date-text">{getEventDate(event)}</span>
                     </div>
 
                     <h3 className="event-card-title">{getEventTitle(event)}</h3>
 
                     <div className="event-venue-row">
-                      <span className="event-venue-icon" aria-hidden="true">📍</span>
+                      <span className="event-venue-icon" aria-hidden="true">
+                        <MapPinIcon size={16} />
+                      </span>
                       <span className="event-venue-text">{getEventVenue(event)}</span>
                     </div>
 
@@ -449,7 +499,9 @@ export function LandingPage({ onSelectEvent, onNavigateToTickets }) {
           <div className="footer-top-grid">
             <div className="footer-brand-column">
               <div className="footer-brand-logo" data-testid="footer-brand">
-                <span className="footer-brand-icon" aria-hidden="true">🎟️</span>
+                <span className="footer-brand-icon" aria-hidden="true">
+                  <TicketIcon size={20} />
+                </span>
                 <span className="footer-brand-name">{t('footer.brand_name', 'TicketCraft')}</span>
               </div>
               <p className="footer-brand-description">

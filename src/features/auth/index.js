@@ -8,3 +8,12 @@ export { LoginForm } from './components/LoginForm';
 export { RegisterForm } from './components/RegisterForm';
 export { OAuthProviders } from './components/OAuthProviders';
 export { SessionExpiredView } from './components/SessionExpiredView';
+export {
+  RouteGuard,
+  canAccessRoute,
+  getDefaultRouteForRole,
+  getUserRole,
+  normalizeRoute,
+  useRouteGuard,
+  ROUTE_PERMISSIONS,
+} from './guards/RouteGuard';

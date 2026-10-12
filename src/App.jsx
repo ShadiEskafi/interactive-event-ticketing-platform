@@ -1,10 +1,19 @@
-import { useState } from 'react';
-import { AuthProvider, AuthModal, useAuth } from './features/auth';
+import { useState, useCallback } from 'react';
+import {
+  AuthProvider,
+  AuthModal,
+  useAuth,
+  RouteGuard,
+  getUserRole,
+  getDefaultRouteForRole,
+} from './features/auth';
 import { EventBookingPage } from './features/seatmap';
 import { MyTicketsPage } from './features/tickets';
 import { GateScannerPage } from './features/gate-scanner';
 import { LandingPage, FEATURED_EVENTS } from './features/landing';
+import { AdminDashboardPage, adminService } from './features/admin';
 import { LanguageProvider, useLanguage } from './context';
+import { TicketIcon, GlobeIcon } from './components/common/Icons';
 import './App.css';
 
 export function MainNavbar({
@@ -20,6 +29,7 @@ export function MainNavbar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const currentView = activeView || (activeTab === 'events' ? 'booking' : activeTab) || 'landing';
+  const role = user ? (getUserRole(user) || 'attendee') : null;
 
   const handleSelectView = (view) => {
     setIsMobileMenuOpen(false);
@@ -54,18 +64,21 @@ export function MainNavbar({
           aria-label={t('navbar.brand_name', 'TicketCraft')}
           style={{ cursor: 'pointer' }}
         >
-          <span className="brand-icon" aria-hidden="true">🎟️</span>
+          <span className="brand-icon brand-icon-svg" aria-hidden="true">
+            <TicketIcon size={24} />
+          </span>
           <div className="brand-text">
             <span className="brand-name">{t('navbar.brand_name', 'TicketCraft')}</span>
             <span className="brand-tagline">{t('navbar.tagline', 'Real-Time Interactive Ticketing')}</span>
           </div>
         </div>
 
-        {/* Center Nav Links (Desktop & Mobile Drawer) */}
+        {/* Center Nav Links (Desktop & Mobile Drawer with Strict Role-Based Visibility) */}
         <nav
           className={`nav-center-links ${isMobileMenuOpen ? 'mobile-open' : ''}`}
           aria-label="Main Navigation"
         >
+          {/* Home: Visible to everyone */}
           <button
             type="button"
             className={`nav-link-btn ${currentView === 'landing' ? 'active' : ''}`}
@@ -74,30 +87,66 @@ export function MainNavbar({
           >
             {t('navbar.home', 'Home')}
           </button>
-          <button
-            type="button"
-            className={`nav-link-btn ${currentView === 'booking' ? 'active' : ''}`}
-            data-testid="nav-link-events"
-            onClick={handleFeaturedEventsClick}
-          >
-            {t('navbar.featured_events', 'Featured Events')}
-          </button>
-          <button
-            type="button"
-            className={`nav-link-btn ${currentView === 'tickets' ? 'active' : ''}`}
-            data-testid="nav-link-my-tickets"
-            onClick={() => handleSelectView('tickets')}
-          >
-            {t('navbar.my_tickets', 'My Tickets')}
-          </button>
-          <button
-            type="button"
-            className={`nav-link-btn ${currentView === 'scanner' ? 'active' : ''}`}
-            data-testid="nav-link-scanner"
-            onClick={() => handleSelectView('scanner')}
-          >
-            {t('navbar.scanner', 'Gate Scanner')}
-          </button>
+
+          {/* Featured Events: Visible to Guest, Attendee, Organizer, Super Admin (Hidden for Gate Staff) */}
+          {(!user || role !== 'gate_staff') && (
+            <button
+              type="button"
+              className={`nav-link-btn ${currentView === 'booking' ? 'active' : ''}`}
+              data-testid="nav-link-events"
+              onClick={handleFeaturedEventsClick}
+            >
+              {t('navbar.featured_events', 'Featured Events')}
+            </button>
+          )}
+
+          {/* My Tickets: Strictly visible to authenticated Attendee only */}
+          {user && role === 'attendee' && (
+            <button
+              type="button"
+              className={`nav-link-btn ${currentView === 'tickets' ? 'active' : ''}`}
+              data-testid="nav-link-my-tickets"
+              onClick={() => handleSelectView('tickets')}
+            >
+              {t('navbar.my_tickets', 'My Tickets')}
+            </button>
+          )}
+
+          {/* Gate Scanner: Strictly visible to authenticated Gate Staff only */}
+          {user && role === 'gate_staff' && (
+            <button
+              type="button"
+              className={`nav-link-btn ${currentView === 'scanner' ? 'active' : ''}`}
+              data-testid="nav-link-scanner"
+              onClick={() => handleSelectView('scanner')}
+            >
+              {t('navbar.scanner', 'Gate Scanner')}
+            </button>
+          )}
+
+          {/* Organizer Hub: Strictly visible to authenticated Organizer only */}
+          {user && role === 'organizer' && (
+            <button
+              type="button"
+              className={`nav-link-btn ${currentView === 'organizer' ? 'active' : ''}`}
+              data-testid="nav-link-organizer"
+              onClick={() => handleSelectView('organizer')}
+            >
+              {t('navbar.organizer_hub', 'Organizer Hub')}
+            </button>
+          )}
+
+          {/* Admin Hub: Strictly visible to authenticated Super Admin only */}
+          {user && role === 'super_admin' && (
+            <button
+              type="button"
+              className={`nav-link-btn ${currentView === 'admin' ? 'active' : ''}`}
+              data-testid="nav-link-admin"
+              onClick={() => handleSelectView('admin')}
+            >
+              {t('navbar.admin_hub', 'Admin Hub')}
+            </button>
+          )}
         </nav>
 
         <div className="navbar-actions-group">
@@ -110,7 +159,9 @@ export function MainNavbar({
               onClick={toggleLanguage}
               aria-label={t('navbar.lang_aria', language === 'en' ? 'Switch to Arabic' : 'Switch to English')}
             >
-              <span className="lang-globe-icon" aria-hidden="true">🌐</span>
+              <span className="lang-globe-icon lang-globe-svg" aria-hidden="true">
+                <GlobeIcon size={18} />
+              </span>
               <span className="lang-text">{t('navbar.lang_toggle', language === 'en' ? 'العربية' : 'English')}</span>
             </button>
 
@@ -188,8 +239,13 @@ export function AppContent() {
   const [selectedEventId, setSelectedEventId] = useState('evt-symphony-2026');
   const [isHeaderAuthOpen, setIsHeaderAuthOpen] = useState(false);
 
+  const allEvents =
+    typeof adminService !== 'undefined' && typeof adminService.getAllEvents === 'function'
+      ? adminService.getAllEvents()
+      : FEATURED_EVENTS;
+
   const selectedEvent =
-    FEATURED_EVENTS.find((e) => e.id === selectedEventId) || FEATURED_EVENTS[0];
+    allEvents.find((e) => e.id === selectedEventId) || allEvents[0] || FEATURED_EVENTS[0];
 
   const handleSelectFeaturedEvents = () => {
     if (currentView === 'landing') {
@@ -219,6 +275,15 @@ export function AppContent() {
       ? selectedEvent.title_ar
       : selectedEvent?.title || 'Grand Symphony Concert';
 
+  const handleAuthSuccess = useCallback((authedUser) => {
+    setIsHeaderAuthOpen(false);
+    if (authedUser) {
+      const role = getUserRole(authedUser);
+      const targetView = getDefaultRouteForRole(role);
+      setCurrentView(targetView);
+    }
+  }, []);
+
   return (
     <div className="app-layout">
       <MainNavbar
@@ -240,11 +305,51 @@ export function AppContent() {
       )}
 
       {currentView === 'scanner' && (
-        <GateScannerPage
-          eventId={selectedEvent?.id || 'evt-symphony-2026'}
-          eventName={currentEventTitle}
-          onBackToApp={() => setCurrentView('landing')}
-        />
+        <RouteGuard
+          route="/scanner"
+          onUnauthorized={() => setCurrentView('landing')}
+          onNavigate={setCurrentView}
+        >
+          <GateScannerPage
+            eventId={selectedEvent?.id || 'evt-symphony-2026'}
+            eventName={currentEventTitle}
+            onBackToApp={() => setCurrentView('landing')}
+          />
+        </RouteGuard>
+      )}
+
+      {currentView === 'organizer' && (
+        <RouteGuard
+          route="/organizer"
+          onUnauthorized={() => setCurrentView('landing')}
+          onNavigate={setCurrentView}
+        >
+          <AdminDashboardPage
+            initialRole="organizer"
+            onNavigateToHome={() => setCurrentView('landing')}
+            onNavigateToScanner={(eventId) => {
+              setSelectedEventId(eventId || selectedEventId);
+              setCurrentView('scanner');
+            }}
+          />
+        </RouteGuard>
+      )}
+
+      {currentView === 'admin' && (
+        <RouteGuard
+          route="/admin"
+          onUnauthorized={() => setCurrentView('landing')}
+          onNavigate={setCurrentView}
+        >
+          <AdminDashboardPage
+            initialRole="super_admin"
+            onNavigateToHome={() => setCurrentView('landing')}
+            onNavigateToScanner={(eventId) => {
+              setSelectedEventId(eventId || selectedEventId);
+              setCurrentView('scanner');
+            }}
+          />
+        </RouteGuard>
       )}
 
       {hasOpenedBooking && (
@@ -266,7 +371,7 @@ export function AppContent() {
       <AuthModal
         isOpen={isHeaderAuthOpen}
         onClose={() => setIsHeaderAuthOpen(false)}
-        onAuthSuccess={() => setIsHeaderAuthOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
       />
     </div>
   );

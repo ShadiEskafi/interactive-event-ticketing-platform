@@ -3,6 +3,7 @@ import { QRCodeDisplay } from './QRCodeDisplay';
 import { TicketExportActions } from './TicketExportActions';
 import { useTicketExport } from '../hooks/useTicketExport';
 import { formatCurrency } from '../../seatmap/utils/formatters';
+import { TicketIcon } from '../../../components/common/Icons';
 
 /**
  * Visual Ticket Pass Container Component (SPEC-04 / REQ-TICK-04.4)
@@ -37,7 +38,10 @@ export function TicketPassView({
         {/* Pass Top Banner */}
         <div className="pass-header">
           <div className="pass-brand-row">
-            <span className="pass-brand-logo">🎟️ TicketCraft</span>
+            <span className="pass-brand-logo">
+              <TicketIcon size={18} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '6px' }} />
+              TicketCraft
+            </span>
             <span
               className="pass-tier-badge"
               style={{ backgroundColor: `${tierColor}20`, color: tierColor, borderColor: `${tierColor}50` }}
