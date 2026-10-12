@@ -10,6 +10,8 @@ export {
   INITIAL_SUPER_ADMIN,
   recordAuditLog,
   getAuditLogs,
+  getUsers,
+  fetchUsersFromSupabase,
   createGateStaffUser,
   createUser,
   resetToCleanState,

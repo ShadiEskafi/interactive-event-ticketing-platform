@@ -1,5 +1,5 @@
 import { FEATURED_EVENTS } from '../../landing/featuredEvents';
-import { ticketingService } from '../../../services';
+import { ticketingService, authService } from '../../../services';
 import { supabase } from '../../../services/supabaseClient';
 import { cryptoSigner } from '../../tickets/services/cryptoSigner';
 
@@ -48,13 +48,46 @@ export class AdminService {
     this.cryptoSigner = cryptoSigner;
     this._customEvents = [];
     this._overrides = {};
-    this._users = [...INITIAL_USERS];
+    this._users = this._loadUsers();
     this._auditLogs = [];
   }
 
   // -------------------------------------------------------------
   // STORAGE HELPERS
   // -------------------------------------------------------------
+
+  _loadUsers() {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const stored = window.localStorage.getItem(PLATFORM_USERS_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const hasAdmin = parsed.some(
+              (u) => u.email?.toLowerCase() === INITIAL_SUPER_ADMIN.email.toLowerCase()
+            );
+            return hasAdmin ? parsed : [INITIAL_SUPER_ADMIN, ...parsed];
+          }
+        }
+      } catch {
+        // Safe fallback
+      }
+    }
+    return Array.isArray(this._users) && this._users.length > 0
+      ? this._users
+      : [...INITIAL_USERS];
+  }
+
+  _saveUsers(users) {
+    this._users = Array.isArray(users) ? users : [...INITIAL_USERS];
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(PLATFORM_USERS_STORAGE_KEY, JSON.stringify(this._users));
+      } catch {
+        // Safe fallback
+      }
+    }
+  }
 
   _loadCustomEvents() {
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -595,9 +628,80 @@ export class AdminService {
    */
   getUsers() {
     if (!this._users || this._users.length === 0) {
-      this._users = [...INITIAL_USERS];
+      this._users = this._loadUsers();
     }
     return [...this._users];
+  }
+
+  /**
+   * Fetches all registered users/profiles directly from Supabase profiles table
+   * and merges them into memory & localStorage.
+   */
+  async fetchUsersFromSupabase() {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (error || !Array.isArray(data)) {
+        return this.getUsers();
+      }
+
+      const currentUsers = this.getUsers();
+      const localMap = new Map();
+      currentUsers.forEach((u) => {
+        if (u.email) localMap.set(u.email.toLowerCase(), u);
+      });
+
+      const merged = data.map((profile) => {
+        const emailLower = (profile.email || '').toLowerCase();
+        const existing = localMap.get(emailLower);
+        const isSuperAdmin =
+          emailLower === INITIAL_SUPER_ADMIN.email.toLowerCase() ||
+          profile.role === 'super_admin';
+
+        const role = isSuperAdmin ? 'super_admin' : (profile.role || 'attendee');
+        const defaultName = isSuperAdmin
+          ? INITIAL_SUPER_ADMIN.name
+          : (role === 'gate_staff' ? 'Gate Staff' : (emailLower.split('@')[0] || 'Platform User'));
+        const defaultNameAr = isSuperAdmin
+          ? INITIAL_SUPER_ADMIN.name_ar
+          : (role === 'gate_staff' ? 'موظف بوابة' : defaultName);
+
+        return {
+          id: profile.id || existing?.id || `usr-${role}-${Date.now()}`,
+          name: existing?.name || defaultName,
+          name_ar: existing?.name_ar || defaultNameAr,
+          email: profile.email,
+          role,
+          status: existing?.status || 'active',
+          avatar: existing?.avatar || (existing?.name || defaultName).slice(0, 2).toUpperCase(),
+          assignedEventId: profile.assigned_event_id || existing?.assignedEventId || null,
+          assignedDate: profile.assigned_date || existing?.assignedDate || null,
+          createdAt: profile.created_at || existing?.createdAt || new Date().toISOString(),
+        };
+      });
+
+      // Also preserve any in-flight local users that haven't been indexed by Supabase yet
+      const mergedEmails = new Set(merged.map((m) => m.email.toLowerCase()));
+      currentUsers.forEach((u) => {
+        if (u.email && !mergedEmails.has(u.email.toLowerCase())) {
+          merged.push(u);
+        }
+      });
+
+      // Ensure Super Admin is always present
+      if (!merged.some((u) => u.email.toLowerCase() === INITIAL_SUPER_ADMIN.email.toLowerCase())) {
+        merged.unshift(INITIAL_SUPER_ADMIN);
+      }
+
+      this._saveUsers(merged);
+      return [...merged];
+    } catch (err) {
+      console.warn('[AdminService] fetchUsersFromSupabase exception:', err);
+      return this.getUsers();
+    }
   }
 
   /**
@@ -617,7 +721,7 @@ export class AdminService {
       role: newRole,
       updatedAt: new Date().toISOString(),
     };
-    this._users = users;
+    this._saveUsers(users);
 
     try {
       supabase
@@ -689,7 +793,23 @@ export class AdminService {
       users.push(newStaffUser);
     }
 
-    this._users = users;
+    this._saveUsers(users);
+
+    // Persist and provision user in Supabase auth.users and profiles
+    try {
+      authService.provisionUser?.({
+        email: newStaffUser.email,
+        password: newStaffUser.password,
+        role: 'gate_staff',
+        fullName: newStaffUser.name,
+        assignedEventId: newStaffUser.assignedEventId,
+        assignedDate: newStaffUser.assignedDate,
+      }).then(() => {
+        this.fetchUsersFromSupabase().catch(() => {});
+      }).catch(() => {});
+    } catch {
+      // Safe fallback
+    }
 
     this.recordAuditLog({
       action: 'GATE_STAFF_CREATED',
@@ -748,7 +868,21 @@ export class AdminService {
       users.push(newUser);
     }
 
-    this._users = users;
+    this._saveUsers(users);
+
+    // Persist and provision user in Supabase auth.users and profiles
+    try {
+      authService.provisionUser?.({
+        email: newUser.email,
+        password: newUser.password,
+        role: newUser.role,
+        fullName: newUser.name,
+      }).then(() => {
+        this.fetchUsersFromSupabase().catch(() => {});
+      }).catch(() => {});
+    } catch {
+      // Safe fallback
+    }
 
     this.recordAuditLog({
       action: 'USER_CREATED',
@@ -781,7 +915,7 @@ export class AdminService {
       updatedAt: new Date().toISOString(),
     };
 
-    this._users = users;
+    this._saveUsers(users);
 
     this.recordAuditLog({
       action: 'USER_STATUS_TOGGLED',
@@ -931,6 +1065,8 @@ export const adminService = new AdminService();
 // Standalone functional exports
 export const recordAuditLog = (params) => adminService.recordAuditLog(params);
 export const getAuditLogs = () => adminService.getAuditLogs();
+export const getUsers = () => adminService.getUsers();
+export const fetchUsersFromSupabase = () => adminService.fetchUsersFromSupabase();
 export const createGateStaffUser = (params) => adminService.createGateStaffUser(params);
 export const createUser = (params) => adminService.createUser(params);
 export const resetToCleanState = (actorEmail) => adminService.resetToCleanState(actorEmail);
