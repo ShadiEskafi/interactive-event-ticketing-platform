@@ -277,4 +277,95 @@ describe('RBAC, Super Admin, Route Guards & Session Invalidation', () => {
       expect(signOutSpy).toHaveBeenCalled();
     });
   });
+
+  // =========================================================================
+  // 5. Super Admin Session Stability & RouteGuard Race Prevention
+  // =========================================================================
+  describe('Task 5: Super Admin Session Stability & RouteGuard Race Prevention', () => {
+    it('always resolves shadieskafi@gmail.com as super_admin even if role is authenticated', () => {
+      const rawSupabaseUser = {
+        id: 'usr_supabase_raw_1',
+        email: 'shadieskafi@gmail.com',
+        role: 'authenticated', // Supabase DB connection role
+      };
+      expect(canAccessRoute(rawSupabaseUser, '/admin')).toBe(true);
+      expect(getDefaultRouteForRole(rawSupabaseUser)).toBe('admin');
+    });
+
+    it('filters out internal authenticated role and resolves app_metadata or attendee', () => {
+      const regularAttendee = {
+        id: 'usr_supabase_att',
+        email: 'user@example.com',
+        role: 'authenticated',
+      };
+      expect(canAccessRoute(regularAttendee, '/admin')).toBe(false);
+      expect(getDefaultRouteForRole(regularAttendee)).toBe('tickets');
+
+      const organizerUser = {
+        id: 'usr_supabase_org',
+        email: 'org@example.com',
+        role: 'authenticated',
+        user_metadata: { role: 'organizer' },
+      };
+      expect(canAccessRoute(organizerUser, '/organizer')).toBe(true);
+      expect(canAccessRoute(organizerUser, '/admin')).toBe(false);
+    });
+
+    it('RouteGuard waits for isLoading before evaluating or calling onUnauthorized', async () => {
+      const onUnauthorizedSpy = vi.fn();
+
+      // Custom mock auth that starts in loading state
+      const loadingMockAuth = {
+        currentUser: null,
+        isLoading: true,
+        getSession: vi.fn().mockImplementation(() => new Promise(() => {})), // never resolves
+        onAuthStateChange: vi.fn(() => () => {}),
+        isUserInvalidated: () => false,
+      };
+
+      render(
+        <AuthProvider customAuthService={loadingMockAuth}>
+          <RouteGuard route="/admin" onUnauthorized={onUnauthorizedSpy}>
+            <div data-testid="admin-content">Admin Dashboard Secret Content</div>
+          </RouteGuard>
+        </AuthProvider>
+      );
+
+      // Must display loading spinner and NOT call onUnauthorized
+      expect(screen.getByTestId('route-guard-loading')).toBeInTheDocument();
+      expect(screen.queryByTestId('admin-content')).toBeNull();
+      expect(screen.queryByTestId('route-guard-denied')).toBeNull();
+      expect(onUnauthorizedSpy).not.toHaveBeenCalled();
+    });
+
+    it('RouteGuard grants access to super_admin when loaded even with raw Supabase session', async () => {
+      const superAdminUser = {
+        id: 'usr_super_1',
+        email: 'shadieskafi@gmail.com',
+        role: 'authenticated',
+      };
+
+      const resolvedMockAuth = {
+        currentUser: superAdminUser,
+        isLoading: false,
+        getSession: vi.fn().mockResolvedValue({ session: { user: superAdminUser }, user: superAdminUser }),
+        onAuthStateChange: vi.fn(() => () => {}),
+        isUserInvalidated: () => false,
+      };
+
+      render(
+        <AuthProvider customAuthService={resolvedMockAuth}>
+          <RouteGuard route="/admin">
+            <div data-testid="admin-content">Admin Dashboard Secret Content</div>
+          </RouteGuard>
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('admin-content')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('route-guard-denied')).toBeNull();
+    });
+  });
 });
+

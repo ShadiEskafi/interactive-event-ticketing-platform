@@ -114,6 +114,31 @@ export class MockTicketingService {
 
   _lookupEvent(eventId) {
     if (!eventId) return null;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const storedCustom = window.localStorage.getItem('ticketcraft_custom_events');
+        if (storedCustom) {
+          const parsedCustom = JSON.parse(storedCustom);
+          if (Array.isArray(parsedCustom)) {
+            const match = parsedCustom.find((e) => e.id === eventId);
+            if (match) return match;
+          }
+        }
+        const storedOverrides = window.localStorage.getItem('ticketcraft_event_overrides');
+        if (storedOverrides) {
+          const parsedOverrides = JSON.parse(storedOverrides);
+          if (parsedOverrides && parsedOverrides[eventId]) {
+            const base = Array.isArray(FEATURED_EVENTS)
+              ? FEATURED_EVENTS.find((e) => e.id === eventId)
+              : null;
+            return base ? { ...base, ...parsedOverrides[eventId] } : parsedOverrides[eventId];
+          }
+        }
+      }
+    } catch {
+      // Safe fallback
+    }
+
     if (Array.isArray(FEATURED_EVENTS)) {
       const featured = FEATURED_EVENTS.find((e) => e.id === eventId);
       if (featured) return featured;
@@ -175,6 +200,19 @@ export class MockTicketingService {
    */
   createEventWithSeats(event) {
     return this.seedEventSeats(event);
+  }
+
+  deleteEvent(eventId) {
+    if (!eventId) return false;
+    this.eventSeats.delete(eventId);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.removeItem(`${EVENT_SEATS_STORAGE_KEY_PREFIX}${eventId}`);
+      } catch {
+        // Safe fallback
+      }
+    }
+    return true;
   }
 
   /**

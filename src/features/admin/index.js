@@ -12,13 +12,32 @@ export {
   getAuditLogs,
   getUsers,
   fetchUsersFromSupabase,
+  getAllEvents,
+  fetchEventsFromSupabase,
   createGateStaffUser,
   createUser,
+  deleteEvent,
   resetToCleanState,
 } from './services/adminService';
 
 export { useAdminData } from './hooks/useAdminData';
 export { AdminDashboardPage } from './AdminDashboardPage';
+export { DashboardLayout } from './components/DashboardLayout';
+export { DashboardNavbar } from './components/DashboardNavbar';
+export { WorkspaceControls } from './components/WorkspaceControls';
+export { WorkspaceTabs } from './components/WorkspaceTabs';
+export { DashboardFooter } from './components/DashboardFooter';
+export { KpiMetricsGrid } from './components/KpiMetricsGrid';
+export {
+  StatusBadges,
+  PublicationBadge,
+  OccupancyBadge,
+  RoleBadge,
+} from './components/StatusBadges';
+export { InventoryAnalyticsCard } from './components/InventoryAnalyticsCard';
+export { EventPerformanceChart } from './components/EventPerformanceChart';
+export { EventPerformanceTable } from './components/EventPerformanceTable';
+export { RecentActivityFeed } from './components/RecentActivityFeed';
 export { CreateEditEventModal } from './components/CreateEditEventModal';
 export { CreateGateStaffModal } from './components/CreateGateStaffModal';
 export { CreateUserModal } from './components/CreateUserModal';

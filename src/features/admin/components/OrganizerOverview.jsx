@@ -27,10 +27,13 @@ export function OrganizerOverview({
   attendees = [],
   onNavigateToScanner,
   onCreateEventClick,
+  onCreateEvent,
+  onOpenCreateModal,
   onViewDetails,
 }) {
   const { language } = useLanguage();
   const isAr = language === 'ar';
+  const handleCreate = onCreateEventClick || onCreateEvent || onOpenCreateModal;
 
   const formatCurrency = (val) => `$${(Number(val) || 0).toLocaleString()}`;
 
@@ -278,11 +281,11 @@ export function OrganizerOverview({
               <QrCodeIcon size={16} />
               <span>{isAr ? 'فتح ماسح البوابات للفعالية' : 'Open Scanner For Event'}</span>
             </button>
-            {onCreateEventClick && (
+            {handleCreate && (
               <button
                 type="button"
                 className="admin-btn btn-secondary"
-                onClick={onCreateEventClick}
+                onClick={handleCreate}
               >
                 <PlusIcon size={16} />
                 <span>{isAr ? 'إنشاء فعالية إضافية' : 'Add Another Event'}</span>

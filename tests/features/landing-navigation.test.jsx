@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { LandingPage } from '../../src/features/landing';
 import { AppContent } from '../../src/App';
 import { AuthProvider } from '../../src/features/auth';
 import { MockAuthService } from '../mocks/mockAuthService';
 import { mockTicketingService } from '../../src/features/seatmap/services/mockTicketingService';
+import { adminService } from '../../src/features/admin';
 
 describe('Landing Page & Navigation Integration (TicketCraft MVP)', () => {
   let mockAuth;
@@ -12,7 +13,9 @@ describe('Landing Page & Navigation Integration (TicketCraft MVP)', () => {
   beforeEach(() => {
     mockAuth = new MockAuthService(null);
     window.sessionStorage.clear();
+    window.localStorage.clear();
     mockTicketingService.resetState();
+    adminService.resetState();
   });
 
   describe('LandingPage Component UI & Interactions', () => {
@@ -143,6 +146,45 @@ describe('Landing Page & Navigation Integration (TicketCraft MVP)', () => {
       expect(screen.getByTestId('footer-brand')).toHaveTextContent('TicketCraft');
       expect(screen.getByText(/© 2026 TicketCraft, Inc./i)).toBeInTheDocument();
       expect(screen.getByText(/Realtime Booking Cluster: Online/i)).toBeInTheDocument();
+    });
+
+    it('replaces photographic images in Featured Events with ticket-pass typography and date block', () => {
+      const { container } = render(<LandingPage />);
+
+      // Ensure no photographic <img> elements exist anywhere on the landing page
+      const images = container.querySelectorAll('img');
+      expect(images.length).toBe(0);
+
+      // Verify ticket pass visual components exist
+      const primaryCard = screen.getByTestId('primary-event-card');
+      expect(primaryCard.querySelector('.card-ticket-pass')).toBeInTheDocument();
+      expect(primaryCard.querySelector('.ticket-date-block')).toBeInTheDocument();
+      expect(primaryCard.querySelector('.ticket-genre-emblem')).toBeInTheDocument();
+      expect(primaryCard.querySelector('.category-tag-pill')).toHaveTextContent(/CLASSICAL/i);
+    });
+
+    it('updates event details live in real-time when edited by Super Admin without page refresh', () => {
+      render(<LandingPage />);
+
+      // Initially renders default title and price
+      expect(screen.getByText('Grand Symphony Concert')).toBeInTheDocument();
+      expect(screen.getByText('$45 – $150')).toBeInTheDocument();
+
+      // Super Admin edits the event details
+      act(() => {
+        adminService.updateEvent('evt-symphony-2026', {
+          title: 'Royal Philharmonic Live Jubilee',
+          venue: 'Royal Opera Palace • Riyadh',
+          regularPrice: 90,
+          vipPrice: 200,
+          balconyPrice: 60,
+        });
+      });
+
+      // Instantly reflects in the LandingPage DOM without page refresh
+      expect(screen.getByText('Royal Philharmonic Live Jubilee')).toBeInTheDocument();
+      expect(screen.getByText('Royal Opera Palace • Riyadh')).toBeInTheDocument();
+      expect(screen.getByText('$60 – $200')).toBeInTheDocument();
     });
   });
 

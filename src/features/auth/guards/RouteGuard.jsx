@@ -51,11 +51,14 @@ export function RouteGuard({
   onNavigate = null,
 }) {
   const authContext = useAuth();
+  const isLoading = propUser === undefined && Boolean(authContext?.isLoading);
   const effectiveUser = propUser !== undefined ? propUser : authContext?.user;
 
   const isAllowed = canAccessRoute(effectiveUser, route);
 
   useEffect(() => {
+    if (isLoading) return;
+
     if (!isAllowed) {
       if (onUnauthorized) {
         onUnauthorized(route, effectiveUser);
@@ -65,7 +68,44 @@ export function RouteGuard({
         onNavigate(dest);
       }
     }
-  }, [isAllowed, route, effectiveUser, redirectToDefault, onUnauthorized, onNavigate]);
+  }, [isLoading, isAllowed, route, effectiveUser, redirectToDefault, onUnauthorized, onNavigate]);
+
+  if (isLoading) {
+    return (
+      <section
+        className="route-guard-loading-container"
+        data-testid="route-guard-loading"
+        aria-live="polite"
+        style={{
+          padding: '3rem 1.5rem',
+          textAlign: 'center',
+          maxWidth: '560px',
+          margin: '2rem auto',
+          backgroundColor: '#1e293b',
+          color: '#f8fafc',
+          borderRadius: '12px',
+          border: '1px solid #334155',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem', color: '#D2FA69' }}>
+          <div
+            className="spinner"
+            style={{
+              width: '36px',
+              height: '36px',
+              border: '3px solid rgba(210, 250, 105, 0.2)',
+              borderTopColor: '#D2FA69',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }}
+          />
+        </div>
+        <p style={{ color: '#cbd5e1', fontSize: '1rem' }}>
+          جاري التحقق من الصلاحيات... / Verifying permissions...
+        </p>
+      </section>
+    );
+  }
 
   if (isAllowed) {
     return <>{children}</>;

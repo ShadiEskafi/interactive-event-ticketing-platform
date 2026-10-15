@@ -12,6 +12,8 @@ export const ROUTE_PERMISSIONS = {
   PUBLIC: ['/tickets', '/booking', '/', '/landing'],
 };
 
+const VALID_APP_ROLES = ['super_admin', 'organizer', 'gate_staff', 'attendee'];
+
 /**
  * Safely extracts user role from user object
  * @param {Object|null} user
@@ -19,7 +21,35 @@ export const ROUTE_PERMISSIONS = {
  */
 export function getUserRole(user) {
   if (!user) return null;
-  return user.role || user.user_metadata?.role || user.app_metadata?.role || null;
+
+  // Primary super admin override - shadieskafi@gmail.com is ALWAYS super_admin
+  const email = (user.email || user.user_metadata?.email || '').trim().toLowerCase();
+  if (email === 'shadieskafi@gmail.com') {
+    return 'super_admin';
+  }
+
+  // Check valid application role on user.role (ignore internal Supabase roles like 'authenticated' or 'anon')
+  if (user.role && VALID_APP_ROLES.includes(user.role)) {
+    return user.role;
+  }
+
+  // Check metadata roles
+  const metaRole = user.user_metadata?.role || user.app_metadata?.role;
+  if (metaRole && VALID_APP_ROLES.includes(metaRole)) {
+    return metaRole;
+  }
+
+  // Check attached profile role
+  if (user.profile?.role && VALID_APP_ROLES.includes(user.profile.role)) {
+    return user.profile.role;
+  }
+
+  // If user is authenticated in Supabase but no specific role was assigned, default to attendee
+  if (user.role === 'authenticated' || user.aud === 'authenticated') {
+    return 'attendee';
+  }
+
+  return user.role || null;
 }
 
 /**

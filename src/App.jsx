@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   AuthProvider,
   AuthModal,
@@ -12,8 +12,9 @@ import { MyTicketsPage } from './features/tickets';
 import { GateScannerPage } from './features/gate-scanner';
 import { LandingPage, FEATURED_EVENTS } from './features/landing';
 import { AdminDashboardPage, adminService } from './features/admin';
+import { supabase } from './services/supabaseClient';
 import { LanguageProvider, useLanguage } from './context';
-import { TicketIcon, GlobeIcon } from './components/common/Icons';
+import { TicketIcon, ArrowUpRightIcon } from './components/common/Icons';
 import './App.css';
 
 export function MainNavbar({
@@ -46,6 +47,20 @@ export function MainNavbar({
     }
   };
 
+  const handleScrollToSection = (sectionId) => {
+    setIsMobileMenuOpen(false);
+    if (currentView !== 'landing') {
+      handleSelectView('landing');
+      setTimeout(() => {
+        const el = document.getElementById(sectionId);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } else {
+      const el = document.getElementById(sectionId);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <header className="main-navbar" role="banner">
       <div className="navbar-content">
@@ -64,12 +79,17 @@ export function MainNavbar({
           aria-label={t('navbar.brand_name', 'TicketCraft')}
           style={{ cursor: 'pointer' }}
         >
-          <span className="brand-icon brand-icon-svg" aria-hidden="true">
-            <TicketIcon size={24} />
-          </span>
+          <div className="brand-mark-box" aria-hidden="true">
+            <TicketIcon size={20} className="brand-mark-svg" />
+          </div>
           <div className="brand-text">
-            <span className="brand-name">{t('navbar.brand_name', 'TicketCraft')}</span>
-            <span className="brand-tagline">{t('navbar.tagline', 'Real-Time Interactive Ticketing')}</span>
+            <div className="brand-name-wrap">
+              <span className="brand-name">{t('navbar.brand_name', 'TicketCraft')}</span>
+              <span className="brand-edition-tag">MIHWAR</span>
+            </div>
+            <span className="brand-tagline">
+              {language === 'ar' ? 'محور | تيكت كرافت' : t('navbar.tagline', 'Real-Time Interactive Ticketing')}
+            </span>
           </div>
         </div>
 
@@ -99,6 +119,24 @@ export function MainNavbar({
               {t('navbar.featured_events', 'Featured Events')}
             </button>
           )}
+
+          {/* Features / Why TicketCraft */}
+          <button
+            type="button"
+            className="nav-link-btn nav-link-figma-item"
+            onClick={() => handleScrollToSection('why-ticketcraft')}
+          >
+            {t('navbar.features', language === 'ar' ? 'المزايا' : 'Features')}
+          </button>
+
+          {/* Organizers / Ecosystem */}
+          <button
+            type="button"
+            className="nav-link-btn nav-link-figma-item"
+            onClick={() => handleScrollToSection('ecosystem')}
+          >
+            {t('navbar.organizers', language === 'ar' ? 'المنظمون' : 'Organizers')}
+          </button>
 
           {/* My Tickets: Strictly visible to authenticated Attendee only */}
           {user && role === 'attendee' && (
@@ -150,21 +188,25 @@ export function MainNavbar({
         </nav>
 
         <div className="navbar-actions-group">
-          <div className="navbar-user-section">
-            {/* Bilingual Language Switcher */}
-            <button
-              type="button"
-              className="nav-btn nav-btn-lang"
-              data-testid="language-toggle-btn"
-              onClick={toggleLanguage}
-              aria-label={t('navbar.lang_aria', language === 'en' ? 'Switch to Arabic' : 'Switch to English')}
-            >
-              <span className="lang-globe-icon lang-globe-svg" aria-hidden="true">
-                <GlobeIcon size={18} />
-              </span>
-              <span className="lang-text">{t('navbar.lang_toggle', language === 'en' ? 'العربية' : 'English')}</span>
-            </button>
+          {/* Bilingual Language Capsule Toggle (Figma template EL-eda14dc5) */}
+          <button
+            type="button"
+            className="nav-btn nav-btn-lang"
+            data-testid="language-toggle-btn"
+            onClick={toggleLanguage}
+            aria-label={t('navbar.lang_aria', language === 'en' ? 'Switch to Arabic' : 'Switch to English')}
+          >
+            <div className="lang-capsule" aria-hidden="true">
+              <span className={`lang-badge ${language === 'ar' ? 'active' : ''}`}>AR</span>
+              <span className="lang-divider">/</span>
+              <span className={`lang-badge ${language === 'en' ? 'active' : ''}`}>EN</span>
+            </div>
+            <span className="lang-text sr-only">
+              {t('navbar.lang_toggle', language === 'en' ? 'العربية' : 'English')}
+            </span>
+          </button>
 
+          <div className="navbar-user-section">
             {user ? (
               <div className="nav-user-profile" data-testid="user-profile-badge">
                 <span className="user-avatar" aria-hidden="true">
@@ -198,6 +240,15 @@ export function MainNavbar({
                   }}
                 >
                   {t('navbar.sign_in', 'Sign In')}
+                </button>
+                <button
+                  type="button"
+                  className="nav-btn nav-btn-cta"
+                  data-testid="btn-nav-get-started"
+                  onClick={handleFeaturedEventsClick}
+                >
+                  <span>{t('navbar.get_started', language === 'ar' ? 'ابدأ الآن' : 'Get Started')}</span>
+                  <ArrowUpRightIcon size={16} />
                 </button>
               </div>
             )}
@@ -239,10 +290,124 @@ export function AppContent() {
   const [selectedEventId, setSelectedEventId] = useState('evt-symphony-2026');
   const [isHeaderAuthOpen, setIsHeaderAuthOpen] = useState(false);
 
-  const allEvents =
+  const [platformEvents, setPlatformEvents] = useState(() =>
     typeof adminService !== 'undefined' && typeof adminService.getAllEvents === 'function'
       ? adminService.getAllEvents()
-      : FEATURED_EVENTS;
+      : FEATURED_EVENTS
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    let channel = null;
+
+    async function syncEvents() {
+      if (
+        typeof adminService !== 'undefined' &&
+        typeof adminService.fetchEventsFromSupabase === 'function'
+      ) {
+        try {
+          const events = await adminService.fetchEventsFromSupabase();
+          if (isMounted && Array.isArray(events)) {
+            setPlatformEvents(events);
+          }
+        } catch {
+          // Safe fallback
+        }
+      }
+    }
+
+    syncEvents();
+
+    // Subscribe to live adminService updates in the current window
+    const unsubscribeAdmin =
+      typeof adminService !== 'undefined' && typeof adminService.subscribe === 'function'
+        ? adminService.subscribe((updated) => {
+            if (isMounted && Array.isArray(updated)) {
+              setPlatformEvents(updated);
+            }
+          })
+        : null;
+
+    const handleEventsUpdated = (e) => {
+      if (isMounted) {
+        if (e?.detail?.events && Array.isArray(e.detail.events)) {
+          setPlatformEvents(e.detail.events);
+        } else if (typeof adminService !== 'undefined' && typeof adminService.getAllEvents === 'function') {
+          setPlatformEvents(adminService.getAllEvents());
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('ticketcraft:events-updated', handleEventsUpdated);
+    }
+
+    if (
+      typeof supabase !== 'undefined' &&
+      supabase &&
+      typeof supabase.channel === 'function' &&
+      import.meta.env?.MODE !== 'test'
+    ) {
+      try {
+        channel = supabase
+          .channel('public:events:app')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'events' },
+            () => {
+              syncEvents();
+            }
+          )
+          .subscribe();
+      } catch {
+        // Safe Realtime subscription fallback
+      }
+    }
+
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        syncEvents();
+      }
+    };
+
+    const handleStorage = (e) => {
+      if (e.key && (e.key.includes('event') || e.key.includes('ticketcraft'))) {
+        syncEvents();
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorage);
+    }
+
+    return () => {
+      isMounted = false;
+      if (typeof unsubscribeAdmin === 'function') {
+        unsubscribeAdmin();
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('ticketcraft:events-updated', handleEventsUpdated);
+      }
+      if (channel && typeof supabase !== 'undefined' && typeof supabase.removeChannel === 'function') {
+        try {
+          supabase.removeChannel(channel);
+        } catch {
+          // Safe cleanup
+        }
+      }
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', handleStorage);
+      }
+    };
+  }, []);
+
+  const allEvents = platformEvents;
 
   const selectedEvent =
     allEvents.find((e) => e.id === selectedEventId) || allEvents[0] || FEATURED_EVENTS[0];
@@ -295,6 +460,7 @@ export function AppContent() {
 
       {currentView === 'landing' && (
         <LandingPage
+          events={allEvents}
           onSelectEvent={handleSelectEvent}
           onNavigateToTickets={() => setCurrentView('tickets')}
         />

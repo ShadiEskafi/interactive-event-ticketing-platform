@@ -668,9 +668,9 @@ class SupabaseTicketingService {
   async seedEventSeats(eventData) {
     if (!eventData || !eventData.id) return null;
     const eventId = eventData.id;
-    const vipPrice = Number(eventData.vipPrice) || 150;
-    const regularPrice = Number(eventData.regularPrice) || 85;
-    const balconyPrice = Number(eventData.balconyPrice) || 45;
+    const vipPrice = Number(eventData.vipPrice ?? eventData.tierPricing?.vip ?? 150);
+    const regularPrice = Number(eventData.regularPrice ?? eventData.tierPricing?.regular ?? 85);
+    const balconyPrice = Number(eventData.balconyPrice ?? eventData.tierPricing?.balcony ?? 45);
     try {
       const { data, error } = await supabase.rpc('seed_event_seats', {
         p_event_id: eventId,
@@ -679,7 +679,7 @@ class SupabaseTicketingService {
         p_balcony_price: balconyPrice,
       });
       if (error) {
-        console.warn('[SupabaseTicketingService] seed_event_seats error:', error);
+        console.warn('[SupabaseTicketingService] seed_event_seats error:', error.message || error);
       }
       return data;
     } catch (err) {
@@ -701,8 +701,23 @@ class SupabaseTicketingService {
     const regularPrice = Number(eventData.regularPrice ?? eventData.tierPricing?.regular ?? 85);
     const balconyPrice = Number(eventData.balconyPrice ?? eventData.tierPricing?.balcony ?? 45);
     const status = eventData.status || 'published';
-    const dateTime = eventData.date_time || eventData.date || new Date().toISOString();
+
+    // Bulletproof date normalization
+    const safeParseDate = (raw) => {
+      if (!raw) return new Date().toISOString();
+      if (!isNaN(Date.parse(raw))) return new Date(raw).toISOString();
+      const cleaned = String(raw).replace('•', ' ').replace(/\s+/g, ' ').trim();
+      if (!isNaN(Date.parse(cleaned))) return new Date(cleaned).toISOString();
+      return new Date().toISOString();
+    };
+    const dateTime = safeParseDate(eventData.date_time || eventData.date);
+
     const category = eventData.category || 'Concert';
+    const titleAr = eventData.title_ar || title;
+    const descriptionAr = eventData.description_ar || description;
+    const venueNameAr = eventData.venue_ar || eventData.venue_name_ar || venueName;
+    const categoryAr = eventData.category_ar || category;
+    const imageGradient = eventData.imageGradient || eventData.image_gradient || null;
 
     try {
       const { data, error } = await supabase.rpc('create_event_with_seats', {
@@ -717,11 +732,16 @@ class SupabaseTicketingService {
         p_date_time: dateTime,
         p_created_by: null,
         p_category: category,
+        p_title_ar: titleAr,
+        p_description_ar: descriptionAr,
+        p_venue_name_ar: venueNameAr,
+        p_category_ar: categoryAr,
+        p_image_gradient: imageGradient,
       });
 
       if (error) {
-        console.warn('[SupabaseTicketingService] create_event_with_seats RPC error, falling back to direct upsert:', error);
-        await supabase.from('events').upsert({
+        console.warn('[SupabaseTicketingService] create_event_with_seats RPC error, falling back to direct upsert:', error.message || error);
+        const { error: upsertErr } = await supabase.from('events').upsert({
           id: eventId,
           title,
           description,
@@ -731,14 +751,40 @@ class SupabaseTicketingService {
           balcony_price: balconyPrice,
           status,
           date_time: dateTime,
+          event_date: dateTime,
           category,
+          title_ar: titleAr,
+          description_ar: descriptionAr,
+          venue_name_ar: venueNameAr,
+          category_ar: categoryAr,
+          image_gradient: imageGradient,
         });
+        if (upsertErr) {
+          console.warn('[SupabaseTicketingService] direct upsert fallback notice:', upsertErr.message || upsertErr);
+        }
         await this.seedEventSeats(eventData);
       }
       return data;
     } catch (err) {
       console.warn('[SupabaseTicketingService] createEventWithSeats exception:', err);
       return null;
+    }
+  }
+
+  async deleteEvent(eventId) {
+    if (!eventId) return false;
+    try {
+      const { error } = await supabase.rpc('admin_delete_event', {
+        p_event_id: eventId,
+      });
+      if (error) {
+        console.warn('[SupabaseTicketingService] admin_delete_event RPC error, falling back to direct delete:', error);
+        await supabase.from('events').delete().eq('id', eventId);
+      }
+      return true;
+    } catch (err) {
+      console.warn('[SupabaseTicketingService] deleteEvent exception:', err);
+      return false;
     }
   }
 

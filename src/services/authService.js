@@ -16,8 +16,14 @@ class AuthService {
 
     if (this.useSupabase) {
       try {
-        supabase.auth.onAuthStateChange((_event, session) => {
-          this.currentUser = session?.user || null;
+        supabase.auth.onAuthStateChange(async (_event, session) => {
+          if (!session?.user) {
+            this.currentUser = null;
+            this.notifyAuthState(null);
+            return;
+          }
+          const user = await this._buildEffectiveUser(session.user);
+          this.currentUser = user;
           this.notifyAuthState(this.currentUser);
         });
       } catch {
@@ -78,6 +84,38 @@ class AuthService {
     }
   }
 
+  _resolveEffectiveRole(rawUser, profile) {
+    if (!rawUser) return 'attendee';
+    const email = (rawUser.email || rawUser.user_metadata?.email || '').trim().toLowerCase();
+    if (email === 'shadieskafi@gmail.com') {
+      return 'super_admin';
+    }
+    const VALID_ROLES = ['super_admin', 'organizer', 'gate_staff', 'attendee'];
+    if (profile?.role && VALID_ROLES.includes(profile.role)) {
+      return profile.role;
+    }
+    const metaRole = rawUser.user_metadata?.role || rawUser.app_metadata?.role;
+    if (metaRole && VALID_ROLES.includes(metaRole)) {
+      return metaRole;
+    }
+    if (rawUser.role && VALID_ROLES.includes(rawUser.role)) {
+      return rawUser.role;
+    }
+    return 'attendee';
+  }
+
+  async _buildEffectiveUser(rawUser) {
+    if (!rawUser) return null;
+    const profile = await this._fetchProfile(rawUser.id);
+    const effectiveRole = this._resolveEffectiveRole(rawUser, profile);
+    return {
+      ...rawUser,
+      role: effectiveRole,
+      assignedEventId: profile?.assigned_event_id || null,
+      assignedDate: profile?.assigned_date || null,
+    };
+  }
+
   async getSession() {
     if (this.useSupabase) {
       try {
@@ -89,14 +127,7 @@ class AuthService {
             await this.signOut();
             return { session: null, user: null, invalidated: true };
           }
-          const profile = await this._fetchProfile(rawUser.id);
-          const effectiveRole = profile?.role || rawUser.role || rawUser.user_metadata?.role || (rawUser.email === 'shadieskafi@gmail.com' ? 'super_admin' : 'attendee');
-          const user = {
-            ...rawUser,
-            role: effectiveRole,
-            assignedEventId: profile?.assigned_event_id || null,
-            assignedDate: profile?.assigned_date || null,
-          };
+          const user = await this._buildEffectiveUser(rawUser);
           this.currentUser = user;
           return { session: data.session, user };
         }
@@ -210,14 +241,7 @@ class AuthService {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (!error && data?.user) {
-          const profile = await this._fetchProfile(data.user.id);
-          const effectiveRole = profile?.role || data.user.role || data.user.user_metadata?.role || (data.user.email === 'shadieskafi@gmail.com' ? 'super_admin' : 'attendee');
-          const user = {
-            ...data.user,
-            role: effectiveRole,
-            assignedEventId: profile?.assigned_event_id || null,
-            assignedDate: profile?.assigned_date || null,
-          };
+          const user = await this._buildEffectiveUser(data.user);
           this.currentUser = user;
           this.notifyAuthState(user);
           return { user, error: null };
@@ -374,7 +398,19 @@ class AuthService {
   async signOut() {
     if (this.useSupabase) {
       try {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch {
+        // Safe fallback
+      }
+    }
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth-token'))) {
+            window.localStorage.removeItem(key);
+          }
+        }
       } catch {
         // Safe fallback
       }

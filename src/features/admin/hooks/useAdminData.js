@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { adminService } from '../services/adminService';
-import { ticketingService } from '../../../services';
+import { supabase } from '../../../services/supabaseClient';
 
 /**
  * useAdminData Hook
@@ -34,24 +34,6 @@ export function useAdminData({
   const [isFlushing, setIsFlushing] = useState(false);
   const [notification, setNotification] = useState(null);
 
-  // On mount, load users and sync latest from Supabase profiles
-  useEffect(() => {
-    let isMounted = true;
-    if (typeof adminService.fetchUsersFromSupabase === 'function') {
-      adminService
-        .fetchUsersFromSupabase()
-        .then((synced) => {
-          if (isMounted && Array.isArray(synced) && synced.length > 0) {
-            setUsers(synced);
-          }
-        })
-        .catch(() => {});
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   // Synchronize data when an event or action updates
   const refreshData = useCallback(
     (targetEventId = selectedEventId) => {
@@ -69,6 +51,23 @@ export function useAdminData({
         setOrganizerStats(adminService.getOrganizerStats(null, currentEventId));
         setAttendees(adminService.getEventAttendees(currentEventId));
         setUsers(adminService.getUsers());
+        setAuditLogs(adminService.getAuditLogs());
+        setConcurrencyStats(adminService.getConcurrencyStats(currentEventId));
+
+        // Background asynchronous sync with Supabase events
+        if (typeof adminService.fetchEventsFromSupabase === 'function') {
+          adminService
+            .fetchEventsFromSupabase()
+            .then((syncedEvents) => {
+              if (Array.isArray(syncedEvents)) {
+                setEvents(syncedEvents);
+                setPlatformStats(adminService.getPlatformStats());
+              }
+            })
+            .catch(() => {});
+        }
+
+        // Background asynchronous sync with Supabase profiles
         if (typeof adminService.fetchUsersFromSupabase === 'function') {
           adminService
             .fetchUsersFromSupabase()
@@ -79,14 +78,111 @@ export function useAdminData({
             })
             .catch(() => {});
         }
-        setAuditLogs(adminService.getAuditLogs());
-        setConcurrencyStats(adminService.getConcurrencyStats(currentEventId));
       } catch (err) {
         console.error('[useAdminData] refreshData failed:', err);
       }
     },
     [selectedEventId]
   );
+
+  // On mount, load events and users from Supabase
+  useEffect(() => {
+    let isMounted = true;
+
+    if (typeof adminService.fetchEventsFromSupabase === 'function') {
+      adminService
+        .fetchEventsFromSupabase()
+        .then((syncedEvents) => {
+          if (isMounted && Array.isArray(syncedEvents)) {
+            setEvents(syncedEvents);
+            setPlatformStats(adminService.getPlatformStats());
+          }
+        })
+        .catch(() => {});
+    }
+
+    if (typeof adminService.fetchUsersFromSupabase === 'function') {
+      adminService
+        .fetchUsersFromSupabase()
+        .then((synced) => {
+          if (isMounted && Array.isArray(synced) && synced.length > 0) {
+            setUsers(synced);
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Multi-tab sync & Supabase Realtime channel for live updates
+  useEffect(() => {
+    let channel = null;
+
+    if (typeof supabase !== 'undefined' && supabase && typeof supabase.channel === 'function') {
+      try {
+        channel = supabase
+          .channel('public:events:dashboard')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'events' },
+            () => {
+              refreshData();
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'profiles' },
+            () => {
+              refreshData();
+            }
+          )
+          .subscribe();
+      } catch {
+        // Safe Realtime subscription fallback
+      }
+    }
+
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        refreshData();
+      }
+    };
+
+    const handleStorage = (e) => {
+      if (
+        e.key &&
+        (e.key.includes('event') || e.key.includes('user') || e.key.includes('ticketcraft'))
+      ) {
+        refreshData();
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorage);
+    }
+
+    return () => {
+      if (channel && typeof supabase !== 'undefined' && typeof supabase.removeChannel === 'function') {
+        try {
+          supabase.removeChannel(channel);
+        } catch {
+          // Safe cleanup
+        }
+      }
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', handleStorage);
+      }
+    };
+  }, [refreshData]);
 
   const setSelectedEventId = useCallback(
     (eventId) => {
@@ -112,15 +208,7 @@ export function useAdminData({
   const handleCreateEvent = useCallback(
     (eventData) => {
       const created = adminService.createEvent(eventData);
-      if (created && typeof ticketingService.createEventWithSeats === 'function') {
-        try {
-          ticketingService.createEventWithSeats(created);
-        } catch (err) {
-          console.warn('[useAdminData] Error syncing event to Supabase:', err);
-        }
-      }
       const newId = created?.id || selectedEventId;
-      refreshData(newId);
       if (created?.id) {
         setSelectedEventIdState(created.id);
       }
@@ -128,19 +216,28 @@ export function useAdminData({
         type: 'success',
         message: 'Event created successfully / تم إنشاء الفعالية بنجاح',
       });
+      refreshData(newId);
       return created;
     },
     [refreshData, selectedEventId]
   );
 
   const handleUpdateEvent = useCallback(
-    (eventId, eventData) => {
+    async (eventId, eventData) => {
       const updated = adminService.updateEvent(eventId, eventData);
-      refreshData(eventId);
-      setNotification({
-        type: 'success',
-        message: 'Event updated successfully / تم تحديث الفعالية بنجاح',
-      });
+      if (updated) {
+        setEvents((prev) =>
+          prev.map((e) => (e.id === eventId ? { ...e, ...updated } : e))
+        );
+        if (typeof adminService._syncEventToSupabase === 'function') {
+          await adminService._syncEventToSupabase(eventId, updated);
+        }
+        refreshData(eventId);
+        setNotification({
+          type: 'success',
+          message: 'Event updated successfully / تم تحديث الفعالية بنجاح',
+        });
+      }
       return updated;
     },
     [refreshData]

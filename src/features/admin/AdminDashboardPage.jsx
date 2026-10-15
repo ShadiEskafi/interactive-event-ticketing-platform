@@ -1,47 +1,47 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useLanguage } from '../../context';
+import { useAuth, getUserRole } from '../auth';
 import { useAdminData } from './hooks/useAdminData';
-import { AdminHeader } from './components/AdminHeader';
+import { DashboardLayout } from './components/DashboardLayout';
+import { WorkspaceControls } from './components/WorkspaceControls';
+import { WorkspaceTabs } from './components/WorkspaceTabs';
+import { DashboardFooter } from './components/DashboardFooter';
 import { SuperAdminOverview } from './components/SuperAdminOverview';
 import { OrganizerOverview } from './components/OrganizerOverview';
 import { EventsManagementTab } from './components/EventsManagementTab';
-import { CreateEditEventModal } from './components/CreateEditEventModal';
-import { EventDetailsModal } from './components/EventDetailsModal';
 import { AttendeeRosterTab } from './components/AttendeeRosterTab';
 import { UsersManagementTab } from './components/UsersManagementTab';
 import { SystemHealthTab } from './components/SystemHealthTab';
+import { AdminAuditLogTab } from './components/AdminAuditLogTab';
+import { CreateEditEventModal } from './components/CreateEditEventModal';
+import { EventDetailsModal } from './components/EventDetailsModal';
 import {
-  BarChart3Icon,
-  CalendarIcon,
-  UsersIcon,
-  ShieldIcon,
-  ZapIcon,
-  TentIcon,
-  UserIcon,
-  TicketIcon,
   AlertTriangleIcon,
   CheckCircleIcon,
   XIcon,
-  QrCodeIcon,
-  HomeIcon,
+  TicketIcon,
 } from '../../components/common/Icons';
 import './AdminDashboard.css';
 
 /**
- * AdminDashboardPage Component
- * Centralized Super Admin & Event Organizer Control Panel.
- * Supports multi-tab operations,
- * event CRUD with standard 520-seat interactive venue enforcement,
- * attendee rosters with UTF-8 BOM CSV export, and concurrency health monitoring.
- * Pure SVG icons and zero emoji dependency.
+ * AdminDashboardPage Component - Complete Figma Mihwar Rebuild (1:1 Pixel-Perfect)
+ * Lead Orchestration Shell:
+ * - Phase 1 Foundation: DashboardLayout with clean Flexbox & CSS Grid slot architecture
+ * - Phase 2 Sub-Agents: DashboardNavbar, WorkspaceControls, WorkspaceTabs, DashboardFooter,
+ *   KpiMetricsGrid, StatusBadges, InventoryAnalyticsCard, EventPerformanceChart,
+ *   EventPerformanceTable, RecentActivityFeed
+ * - Phase 3 Integration: Full state synchronization, modal control, and cross-tab compatibility
  */
 export function AdminDashboardPage({
-  onNavigateToHome,
+  _onNavigateToHome,
   onNavigateToScanner,
   initialRole = 'super_admin',
 }) {
   const { language } = useLanguage();
   const isAr = language === 'ar';
+  const { user } = useAuth();
+  const authUserRole = user ? getUserRole(user) : null;
+  const isRoleLocked = Boolean(authUserRole && authUserRole !== 'super_admin');
 
   const {
     activeRole,
@@ -55,6 +55,7 @@ export function AdminDashboardPage({
     events,
     attendees,
     users,
+    auditLogs = [],
     concurrencyStats,
     isFlushing,
     notification,
@@ -68,16 +69,18 @@ export function AdminDashboardPage({
     handleUpdateUserRole,
     handleCreateGateStaffUser,
     handleCreateUser,
+    handleResetCleanState,
   } = useAdminData({ initialRole });
 
-  // Modal state
+  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState(null);
   const [eventDetailsModalOpen, setEventDetailsModalOpen] = useState(false);
   const [eventForDetails, setEventForDetails] = useState(null);
 
-  const selectedEvent =
-    events.find((e) => e.id === selectedEventId) || events[0] || null;
+  const selectedEvent = useMemo(() => {
+    return events.find((e) => e.id === selectedEventId) || events[0] || null;
+  }, [events, selectedEventId]);
 
   const handleOpenCreateModal = () => {
     setEventToEdit(null);
@@ -104,56 +107,25 @@ export function AdminDashboardPage({
     setEventForDetails(null);
   };
 
-  const handleModalSubmit = (eventFormData) => {
+  const handleModalSubmit = async (eventFormData) => {
     if (eventToEdit?.id) {
-      handleUpdateEvent(eventToEdit.id, eventFormData);
+      await handleUpdateEvent(eventToEdit.id, eventFormData);
     } else {
       handleCreateEvent(eventFormData);
     }
     handleCloseModal();
   };
 
-  // Tab definitions with pure SVG icons and zero emojis
-  const getTabs = () => {
-    if (activeRole === 'organizer') {
-      return [
-        { id: 'my_events', labelEn: 'Organizer Workspace', labelAr: 'مساحة عمل المنظم', Icon: TentIcon },
-        { id: 'events', labelEn: 'Events Management', labelAr: 'إدارة الفعاليات', Icon: CalendarIcon },
-        { id: 'attendees', labelEn: 'Attendee Roster', labelAr: 'كشف الحضور', Icon: UsersIcon },
-        { id: 'staff', labelEn: 'Gate Staff', labelAr: 'طاقم البوابات', Icon: ShieldIcon },
-      ];
-    }
-    if (activeRole === 'gate_staff') {
-      return [
-        { id: 'attendees', labelEn: 'Gate Attendee Roster', labelAr: 'كشف حضور البوابة', Icon: UsersIcon },
-        { id: 'system_health', labelEn: 'Concurrency Status', labelAr: 'حالة التزامن', Icon: ZapIcon },
-      ];
-    }
-    if (activeRole === 'attendee') {
-      return [
-        { id: 'attendee_info', labelEn: 'Attendee Workspace', labelAr: 'مساحة الزائر', Icon: UserIcon },
-      ];
-    }
-
-    // Default: super_admin
-    return [
-      { id: 'overview', labelEn: 'Platform Overview', labelAr: 'نظرة عامة على المنصة', Icon: BarChart3Icon },
-      { id: 'events', labelEn: 'Events Governance', labelAr: 'حوكمة الفعاليات', Icon: CalendarIcon },
-      { id: 'attendees', labelEn: 'Attendee Registry', labelAr: 'سجل الحضور والتذاكر', Icon: UsersIcon },
-      { id: 'users', labelEn: 'Users & Roles', labelAr: 'المستخدمين والصلاحيات', Icon: ShieldIcon },
-      { id: 'system_health', labelEn: 'System & Concurrency', labelAr: 'صحة النظام والتزامن', Icon: ZapIcon },
-    ];
-  };
-
-  const tabs = getTabs();
-
-  // If activeTab is not in current available tabs, switch to first tab
-  const currentTabExists = tabs.some((t) => t.id === activeTab);
-  const currentTab = currentTabExists ? activeTab : tabs[0].id;
+  // Active Tab Normalization
+  const currentTab = activeTab || 'overview';
 
   return (
-    <div className="admin-dashboard-page" data-testid="admin-dashboard-page">
-      {/* Toast Notification Banner with Pure SVG Icons */}
+    <div
+      className="admin-dashboard-page tc-dashboard-shell"
+      data-testid="admin-dashboard-page"
+      dir={isAr ? 'rtl' : 'ltr'}
+    >
+      {/* Toast Notification Alert */}
       {notification && (
         <div
           className={`admin-notification-toast toast-${notification.type}`}
@@ -179,156 +151,116 @@ export function AdminDashboardPage({
         </div>
       )}
 
-      {/* Top Header */}
-      <AdminHeader
-        activeRole={activeRole}
-        onRoleChange={setRole}
-        events={events}
-        selectedEventId={selectedEventId}
-        onSelectEvent={setSelectedEventId}
-        onCreateEventClick={handleOpenCreateModal}
-        onFlushHolds={() => handleFlushHolds(selectedEventId)}
-        isFlushing={isFlushing}
-        onNavigateToHome={onNavigateToHome}
-      />
-
-      {/* Main Tab Navigation */}
-      <nav
-        className="admin-tabs-nav"
-        role="tablist"
-        aria-label={isAr ? 'أقسام لوحة التحكم' : 'Admin navigation tabs'}
+      {/* Structural Layout Shell - navbar is null to avoid duplicate navbar since App.jsx renders MainNavbar globally */}
+      <DashboardLayout
+        dir={isAr ? 'rtl' : 'ltr'}
+        navbar={null}
+        controls={
+          <WorkspaceControls
+            activeRole={activeRole}
+            onSelectRole={setRole}
+            onResetCleanState={handleResetCleanState}
+            onCreateEvent={handleOpenCreateModal}
+            language={language}
+            canSwitchRole={!isRoleLocked}
+          />
+        }
+        tabs={
+          <WorkspaceTabs
+            activeTab={currentTab}
+            onSelectTab={setActiveTab}
+            language={language}
+            activeRole={activeRole}
+          />
+        }
+        footer={<DashboardFooter language={language} />}
       >
-        <div className="admin-tabs-list">
-          {tabs.map((tab) => {
-            const TabIcon = tab.Icon;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={currentTab === tab.id}
-                aria-controls={`tabpanel-${tab.id}`}
-                id={`tab-${tab.id}`}
-                className={`admin-tab-btn ${currentTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-                data-testid={`tab-${tab.id}`}
-              >
-                <TabIcon size={16} className="tab-svg-icon" />
-                <span>{isAr ? tab.labelAr : tab.labelEn}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-
-      {/* Active Tab Content Panel */}
-      <main
-        className="admin-tab-content-container"
-        id={`tabpanel-${currentTab}`}
-        role="tabpanel"
-        aria-labelledby={`tab-${currentTab}`}
-      >
-        {/* Gate Staff Simulator Notice */}
+        {/* Gate Staff Notice */}
         {activeRole === 'gate_staff' && (
-          <div className="role-simulator-notice-card card-staff">
-            <div className="notice-icon">
-              <TicketIcon size={32} />
-            </div>
-            <div className="notice-content">
-              <h3>{isAr ? 'وضع طاقم البوابات (Gate Staff)' : 'Gate Staff Operator Mode'}</h3>
-              <p>
+          <div
+            className="tc-notice-box"
+            style={{
+              backgroundColor: 'var(--tc-surface-dark, #101813)',
+              borderRadius: 'var(--tc-radius-lg, 16px)',
+              padding: '24px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+            }}
+          >
+            <TicketIcon size={32} style={{ color: 'var(--tc-accent-lime, #d2fa69)' }} />
+            <div>
+              <h3 style={{ margin: '0 0 6px 0', color: 'var(--tc-text-primary-dark, #f4f3eb)' }}>
+                {isAr ? 'وضع طاقم البوابات (Gate Staff)' : 'Gate Staff Operator Mode'}
+              </h3>
+              <p style={{ margin: 0, color: 'var(--tc-text-muted-dark, #a5b2a8)', fontSize: '13px' }}>
                 {isAr
                   ? 'أنت تتصفح المنصة بصلاحيات طاقم البوابة. يمكنك مراجعة كشف الحضور فورياً أو تشغيل ماسح الكاميرا للتحقق من التذاكر.'
                   : 'You are viewing as gate staff. You have access to attendee check-in rosters and turnstile QR validation.'}
               </p>
             </div>
-            <button
-              type="button"
-              className="admin-btn btn-primary"
-              onClick={() => onNavigateToScanner?.(selectedEvent?.id)}
-            >
-              <QrCodeIcon size={16} />
-              <span>{isAr ? 'فتح ماسح البوابات' : 'Launch Gate Scanner'}</span>
-            </button>
           </div>
         )}
 
-        {/* Attendee Simulator Notice */}
-        {activeRole === 'attendee' && (
-          <div className="role-simulator-notice-card card-attendee">
-            <div className="notice-icon">
-              <UserIcon size={32} />
-            </div>
-            <div className="notice-content">
-              <h3>{isAr ? 'وضع استعراض الزائر (Attendee Mode)' : 'Standard Attendee Mode'}</h3>
-              <p>
-                {isAr
-                  ? 'أنت تشاهد لوحة التحكم بحساب زائر. يمكنك العودة للصفحة الرئيسية واستعراض الفعاليات وحجز المقاعد التفاعلية.'
-                  : 'You are previewing in attendee mode. Explore events and interact with the 520-seat venue.'}
-              </p>
-            </div>
-            {onNavigateToHome && (
-              <button
-                type="button"
-                className="admin-btn btn-secondary"
-                onClick={onNavigateToHome}
-              >
-                <HomeIcon size={16} />
-                <span>{isAr ? 'العودة للصفحة الرئيسية وحجز التذاكر' : 'Go to Home & Select Seats'}</span>
-              </button>
+        {/* Tab 1: Platform Overview */}
+        {(currentTab === 'overview' || currentTab === 'my_events') && (
+          <>
+            {activeRole === 'organizer' ? (
+              <OrganizerOverview
+                organizerStats={organizerStats}
+                selectedEvent={selectedEvent}
+                events={events}
+                selectedEventId={selectedEventId}
+                onSelectEvent={setSelectedEventId}
+                onCreateEvent={handleOpenCreateModal}
+                onCreateEventClick={handleOpenCreateModal}
+                onOpenCreateModal={handleOpenCreateModal}
+                onViewDetails={handleOpenDetailsModal}
+                onLaunchScanner={(eventId) => onNavigateToScanner?.(eventId || selectedEventId)}
+              />
+            ) : (
+              <SuperAdminOverview
+                platformStats={platformStats}
+                concurrencyStats={concurrencyStats}
+                events={events}
+                auditLogs={auditLogs}
+                onFlushHolds={() => handleFlushHolds(selectedEventId)}
+                isFlushing={isFlushing}
+                onSelectEvent={setSelectedEventId}
+                onViewDetails={handleOpenDetailsModal}
+              />
             )}
-          </div>
+          </>
         )}
 
-        {/* Tab 1: Super Admin Overview */}
-        {currentTab === 'overview' && activeRole === 'super_admin' && (
-          <SuperAdminOverview
-            platformStats={platformStats}
-            concurrencyStats={concurrencyStats}
-            events={events}
-            onFlushHolds={() => handleFlushHolds(selectedEventId)}
-            isFlushing={isFlushing}
-            onSelectEvent={setSelectedEventId}
-            onViewDetails={handleOpenDetailsModal}
-          />
-        )}
-
-        {/* Tab 2: Organizer Workspace Overview */}
-        {currentTab === 'my_events' && (
-          <OrganizerOverview
-            organizerStats={organizerStats}
-            selectedEvent={selectedEvent}
-            attendees={attendees}
-            onNavigateToScanner={onNavigateToScanner}
-            onCreateEventClick={handleOpenCreateModal}
-            onViewDetails={handleOpenDetailsModal}
-          />
-        )}
-
-        {/* Tab 3: Events Management */}
+        {/* Tab 2: Events Management / Governance */}
         {currentTab === 'events' && (
           <EventsManagementTab
             events={events}
+            onCreateEventClick={handleOpenCreateModal}
+            onOpenCreateModal={handleOpenCreateModal}
             onEditEvent={handleOpenEditModal}
+            onOpenEditModal={handleOpenEditModal}
             onDeleteEvent={handleDeleteEvent}
             onToggleFeatured={handleToggleFeatured}
-            onCreateEventClick={handleOpenCreateModal}
             onViewDetails={handleOpenDetailsModal}
           />
         )}
 
-        {/* Tab 4: Attendee Roster */}
+        {/* Tab 3: Attendee Registry / Roster */}
         {currentTab === 'attendees' && (
           <AttendeeRosterTab
             attendees={attendees}
+            events={events}
             selectedEventId={selectedEventId}
-            onExportCSV={handleExportCSV}
+            onSelectEvent={setSelectedEventId}
+            onExportCSV={() => handleExportCSV(selectedEventId)}
           />
         )}
 
-        {/* Tab 5: Users & Roles (Super Admin) or Gate Staff (Organizer) */}
-        {((currentTab === 'users' && activeRole === 'super_admin') ||
-          (currentTab === 'staff' && activeRole === 'organizer')) && (
+        {/* Tab 4: Users & Roles Governance */}
+        {(currentTab === 'users' || currentTab === 'staff') && (
           <UsersManagementTab
             users={activeRole === 'organizer' ? users.filter((u) => u.role === 'gate_staff') : users}
             events={events}
@@ -340,15 +272,23 @@ export function AdminDashboardPage({
           />
         )}
 
-        {/* Tab 6: System & Concurrency Health */}
-        {currentTab === 'system_health' && (
+        {/* Tab 5: System & Concurrency Health */}
+        {(currentTab === 'concurrency' || currentTab === 'system_health') && (
           <SystemHealthTab
             concurrencyStats={concurrencyStats}
             onFlushHolds={() => handleFlushHolds(selectedEventId)}
             isFlushing={isFlushing}
           />
         )}
-      </main>
+
+        {/* Tab 6: Immutable Audit Logs */}
+        {currentTab === 'audit_logs' && (
+          <AdminAuditLogTab
+            logs={auditLogs}
+            onRefresh={() => handleFlushHolds(selectedEventId)}
+          />
+        )}
+      </DashboardLayout>
 
       {/* Create / Edit Event Modal */}
       <CreateEditEventModal

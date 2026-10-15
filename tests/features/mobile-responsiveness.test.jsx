@@ -8,6 +8,7 @@ import { AuthModal } from '../../src/features/auth/AuthModal';
 import { SessionExpiredModal } from '../../src/features/hold/SessionExpiredModal';
 import { PassModal } from '../../src/features/tickets/components/FullScreenQRModal';
 import { MainNavbar } from '../../src/App';
+import { LandingPage } from '../../src/features/landing/LandingPage';
 import { AuthProvider } from '../../src/features/auth';
 import { LanguageProvider } from '../../src/context';
 import { MockAuthService } from '../mocks/mockAuthService';
@@ -224,6 +225,38 @@ describe('📱 Mobile Responsiveness Overhaul Suite', () => {
       fireEvent.click(ticketsLink);
       expect(onSelectView).toHaveBeenCalledWith('tickets');
       expect(menuToggle).toHaveAttribute('aria-expanded', 'false');
+    });
+  });
+
+  describe('5. Landing Page Mobile Ergonomics & Small-Screen Showcase', () => {
+    it('renders hero search, scrollable showcase seat grid, and accessible event selection CTA', () => {
+      const onSelectEvent = vi.fn();
+      render(
+        <LanguageProvider>
+          <LandingPage onSelectEvent={onSelectEvent} />
+        </LanguageProvider>
+      );
+
+      // Hero search input and category pills
+      const searchInput = screen.getByTestId('hero-search-input');
+      expect(searchInput).toBeInTheDocument();
+      expect(screen.getByTestId('category-filter-all')).toBeInTheDocument();
+
+      // Mobile scroll container for the 20-seat showcase row
+      const showcaseScroll = screen.getByTestId('showcase-seat-scroll');
+      expect(showcaseScroll).toBeInTheDocument();
+      expect(showcaseScroll.className).toContain('canvas-seat-rows-scroll');
+
+      // Metric pills
+      expect(screen.getByTestId('metric-pill-seats')).toBeInTheDocument();
+      expect(screen.getByTestId('metric-pill-lock')).toBeInTheDocument();
+      expect(screen.getByTestId('metric-pill-qr')).toBeInTheDocument();
+
+      // Primary event select seats button
+      const selectSeatsBtn = screen.getByTestId('btn-select-seats-symphony');
+      expect(selectSeatsBtn).toBeInTheDocument();
+      fireEvent.click(selectSeatsBtn);
+      expect(onSelectEvent).toHaveBeenCalled();
     });
   });
 });

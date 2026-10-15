@@ -207,6 +207,15 @@ export function RefreshCwIcon(props) {
   );
 }
 
+export function RotateCcwIcon(props) {
+  return (
+    <SvgBase {...props}>
+      <polyline points="1 4 1 10 7 10" />
+      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+    </SvgBase>
+  );
+}
+
 export function GlobeIcon(props) {
   return (
     <SvgBase {...props}>
@@ -367,6 +376,15 @@ export function ArrowRightIcon(props) {
   );
 }
 
+export function ArrowUpRightIcon(props) {
+  return (
+    <SvgBase {...props}>
+      <line x1="7" y1="17" x2="17" y2="7" />
+      <polyline points="7 7 17 7 17 17" />
+    </SvgBase>
+  );
+}
+
 export function SpinnerIcon(props) {
   return (
     <SvgBase className="animate-spin" {...props}>
@@ -521,6 +539,27 @@ export function FolderIcon(props) {
   );
 }
 
+export function MusicIcon(props) {
+  return (
+    <SvgBase {...props}>
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="16" r="3" />
+    </SvgBase>
+  );
+}
+
+export function TheaterIcon(props) {
+  return (
+    <SvgBase {...props}>
+      <path d="M2 10s3-3 10-3 10 3 10 3-1 9-10 9-10-9-10-9z" />
+      <path d="M9 9h.01" />
+      <path d="M15 9h.01" />
+      <path d="M9 13a3 3 0 0 0 6 0" />
+    </SvgBase>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Named aliases without "Icon" suffix
 // ---------------------------------------------------------------------------
@@ -557,6 +596,7 @@ export function QrCode(props) { return <QrCodeIcon {...props} />; }
 export function Home(props) { return <HomeIcon {...props} />; }
 export function ArrowLeft(props) { return <ArrowLeftIcon {...props} />; }
 export function ArrowRight(props) { return <ArrowRightIcon {...props} />; }
+export function ArrowUpRight(props) { return <ArrowUpRightIcon {...props} />; }
 export function Spinner(props) { return <SpinnerIcon {...props} />; }
 export function Crown(props) { return <CrownIcon {...props} />; }
 export function Tent(props) { return <TentIcon {...props} />; }
@@ -571,6 +611,8 @@ export function DollarSign(props) { return <DollarSignIcon {...props} />; }
 export function TrendingUp(props) { return <TrendingUpIcon {...props} />; }
 export function FileText(props) { return <FileTextIcon {...props} />; }
 export function Folder(props) { return <FolderIcon {...props} />; }
+export function Music(props) { return <MusicIcon {...props} />; }
+export function Theater(props) { return <TheaterIcon {...props} />; }
 
 // ---------------------------------------------------------------------------
 // Dynamic Icon Lookup Component
@@ -581,6 +623,8 @@ export function Icon({ name, size = 20, className = '', ...props }) {
   const key = String(name).toLowerCase().replace(/icon$/, '');
 
   switch (key) {
+    case 'music': return <MusicIcon size={size} className={className} {...props} />;
+    case 'theater': return <TheaterIcon size={size} className={className} {...props} />;
     case 'ticket': return <TicketIcon size={size} className={className} {...props} />;
     case 'calendar': return <CalendarIcon size={size} className={className} {...props} />;
     case 'clock': return <ClockIcon size={size} className={className} {...props} />;
@@ -636,6 +680,8 @@ export function Icon({ name, size = 20, className = '', ...props }) {
     case 'arrow-left': return <ArrowLeftIcon size={size} className={className} {...props} />;
     case 'arrowright':
     case 'arrow-right': return <ArrowRightIcon size={size} className={className} {...props} />;
+    case 'arrowupright':
+    case 'arrow-up-right': return <ArrowUpRightIcon size={size} className={className} {...props} />;
     case 'spinner': return <SpinnerIcon size={size} className={className} {...props} />;
     case 'crown': return <CrownIcon size={size} className={className} {...props} />;
     case 'tent': return <TentIcon size={size} className={className} {...props} />;

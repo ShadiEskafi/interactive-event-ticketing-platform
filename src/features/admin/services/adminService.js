@@ -50,6 +50,52 @@ export class AdminService {
     this._overrides = {};
     this._users = this._loadUsers();
     this._auditLogs = [];
+    this._remoteEvents = null;
+    this._subscribers = new Set();
+  }
+
+  /**
+   * Subscribe to real-time events changes across the platform
+   * @param {Function} listener Callback receiving current events array
+   * @returns {Function} Unsubscribe function
+   */
+  subscribe(listener) {
+    if (typeof listener !== 'function') return () => {};
+    if (!this._subscribers) {
+      this._subscribers = new Set();
+    }
+    this._subscribers.add(listener);
+    return () => {
+      this._subscribers.delete(listener);
+    };
+  }
+
+  /**
+   * Broadcasts updated events list to all active in-memory listeners and window custom event
+   */
+  notifySubscribers() {
+    const currentEvents = this.getAllEvents();
+    if (this._subscribers && this._subscribers.size > 0) {
+      this._subscribers.forEach((fn) => {
+        try {
+          fn(currentEvents);
+        } catch (err) {
+          console.warn('[adminService] subscriber notification error:', err);
+        }
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(
+          new CustomEvent('ticketcraft:events-updated', {
+            detail: { events: currentEvents },
+          })
+        );
+      } catch {
+        // Safe dispatch fallback
+      }
+    }
   }
 
   // -------------------------------------------------------------
@@ -191,24 +237,155 @@ export class AdminService {
   // -------------------------------------------------------------
 
   /**
-   * Combines FEATURED_EVENTS and custom events from localStorage, applying any overrides.
+   * Combines Supabase remote events, FEATURED_EVENTS, and custom events from localStorage, applying any overrides.
    * @returns {Array} List of all available events
    */
   getAllEvents() {
     const overrides = this._loadOverrides();
     const customEvents = this._loadCustomEvents();
 
-    const baseEvents = FEATURED_EVENTS.map((evt) => {
+    const eventsMap = new Map();
+
+    // 1. Base Featured Events
+    FEATURED_EVENTS.forEach((evt) => {
+      eventsMap.set(evt.id, evt);
+    });
+
+    // 2. Custom Events from localStorage
+    customEvents.forEach((evt) => {
+      eventsMap.set(evt.id, evt);
+    });
+
+    // 3. Remote Events from Supabase (take precedence for matching IDs, plus any extra remote events)
+    if (this._remoteEvents !== null && Array.isArray(this._remoteEvents)) {
+      this._remoteEvents.forEach((evt) => {
+        eventsMap.set(evt.id, evt);
+      });
+    }
+
+    // 4. Apply all active overrides on top
+    const all = Array.from(eventsMap.values()).map((evt) => {
       const override = overrides[evt.id];
-      if (override) {
-        return { ...evt, ...override };
+      return override ? { ...evt, ...override } : evt;
+    });
+
+    return all.filter((evt) => !evt.deleted);
+  }
+
+  /**
+   * Fetches real-time events directly from Supabase PostgreSQL table.
+   * Maps database columns to the client event model and updates local memory cache.
+   * @returns {Promise<Array>} List of events from Supabase
+   */
+  async fetchEventsFromSupabase() {
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('[adminService] fetchEventsFromSupabase error:', error);
+        return this.getAllEvents();
       }
-      return evt;
-    }).filter((evt) => !evt.deleted);
 
-    const validCustomEvents = customEvents.filter((evt) => !evt.deleted);
+      if (Array.isArray(data)) {
+        const transformedEvents = data.map((row) => {
+          const vPrice = Number(row.vip_price) || 150;
+          const rPrice = Number(row.regular_price) || 85;
+          const bPrice = Number(row.balcony_price) || 45;
+          const minP = Math.min(vPrice, rPrice, bPrice);
+          const maxP = Math.max(vPrice, rPrice, bPrice);
 
-    return [...baseEvents, ...validCustomEvents];
+          return {
+            id: row.id,
+            venueId: row.venue_id || STANDARD_VENUE_ID,
+            title: row.title,
+            title_ar: row.title_ar || row.title,
+            category: row.category || 'Classical',
+            category_ar: row.category_ar || row.category || 'كلاسيكي',
+            date: row.date_time
+              ? new Date(row.date_time).toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })
+              : 'Saturday, Nov 14, 2026 • 8:00 PM',
+            date_ar: row.date_time
+              ? new Date(row.date_time).toLocaleDateString('ar-SA', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })
+              : 'السبت، ١٤ نوفمبر ٢٠٢٦ • ٨:٠٠ م',
+            venue: row.venue_name || 'Grand Symphony Hall • Auditorium',
+            venue_ar: row.venue_name_ar || row.venue_name || 'قاعة السيمفونية الكبرى • المسرح الرئيسي',
+            description: row.description || '',
+            description_ar: row.description_ar || row.description || '',
+            vipPrice: vPrice,
+            regularPrice: rPrice,
+            balconyPrice: bPrice,
+            tierPricing: {
+              vip: vPrice,
+              regular: rPrice,
+              balcony: bPrice,
+            },
+            priceRange: minP === maxP ? `$${minP}` : `$${minP} – $${maxP}`,
+            priceRange_ar: minP === maxP ? `${minP}$` : `${minP}$ – ${maxP}$`,
+            capacity: '520 Seats',
+            capacity_ar: '٥٢٠ مقعداً',
+            status: row.status || 'published',
+            statusPill: row.status === 'draft' ? 'Draft' : 'Live Interactive Map',
+            statusPill_ar: row.status === 'draft' ? 'مسودة' : 'خريطة تفاعلية حية',
+            isPrimary: row.id === 'evt-symphony-2026',
+            highlights: [
+              'Interactive 520-Seat Topology',
+              'Orchestra & VIP Tiers',
+              'Acoustic Soundstage',
+            ],
+            highlights_ar: [
+              'خريطة تفاعلية لـ ٥٢٠ مقعداً',
+              'فئات أوركسترا وكبار الشخصيات',
+              'تصميم صوتي متقدم',
+            ],
+            imageGradient:
+              row.image_gradient ||
+              'linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%)',
+            ctaText: 'Select Seats →',
+            ctaText_ar: 'اختر المقاعد ←',
+            createdAt: row.created_at || new Date().toISOString(),
+          };
+        });
+
+        this._remoteEvents = transformedEvents;
+
+        // Synchronize local custom events without purging user overrides
+        try {
+          const remoteCustom = transformedEvents.filter((e) => e.id.startsWith('evt-custom-'));
+          const localCustom = this._loadCustomEvents();
+          const mergedCustomMap = new Map();
+          localCustom.forEach((e) => mergedCustomMap.set(e.id, e));
+          remoteCustom.forEach((e) => mergedCustomMap.set(e.id, e));
+          this._saveCustomEvents(Array.from(mergedCustomMap.values()));
+        } catch {
+          // Safe fallback
+        }
+
+        this.notifySubscribers();
+        return this.getAllEvents();
+      }
+    } catch (err) {
+      console.warn('[adminService] fetchEventsFromSupabase exception:', err);
+    }
+
+    this.notifySubscribers();
+    return this.getAllEvents();
   }
 
   /**
@@ -253,6 +430,22 @@ export class AdminService {
     const priceRange = minPrice === maxPrice ? `$${minPrice}` : `$${minPrice} – $${maxPrice}`;
     const priceRange_ar = minPrice === maxPrice ? `${minPrice}$` : `${minPrice}$ – ${maxPrice}$`;
 
+    // Compute resilient ISO timestamp for date_time
+    let isoDateTime = new Date().toISOString();
+    try {
+      const rawDate = date || '';
+      if (!isNaN(Date.parse(rawDate))) {
+        isoDateTime = new Date(rawDate).toISOString();
+      } else {
+        const cleaned = String(rawDate).replace('•', ' ').replace(/\s+/g, ' ').trim();
+        if (!isNaN(Date.parse(cleaned))) {
+          isoDateTime = new Date(cleaned).toISOString();
+        }
+      }
+    } catch {
+      isoDateTime = new Date().toISOString();
+    }
+
     const newEvent = {
       id,
       venueId: STANDARD_VENUE_ID,
@@ -262,6 +455,8 @@ export class AdminService {
       category_ar: category_ar || category || 'مهرجانات',
       date: date || 'Saturday, Dec 12, 2026 • 8:00 PM',
       date_ar: date_ar || date || 'السبت، ١٢ ديسمبر ٢٠٢٦ • ٨:٠٠ م',
+      date_time: isoDateTime,
+      event_date: isoDateTime,
       venue: venue || 'Grand Symphony Hall • Auditorium',
       venue_ar: venue_ar || venue || 'قاعة السيمفونية الكبرى • المسرح الرئيسي',
       description:
@@ -320,6 +515,10 @@ export class AdminService {
       // Safe fallback
     }
 
+    if (this._remoteEvents && Array.isArray(this._remoteEvents)) {
+      this._remoteEvents.unshift(newEvent);
+    }
+
     this.recordAuditLog({
       action: 'EVENT_CREATED',
       actorEmail: INITIAL_SUPER_ADMIN.email,
@@ -327,96 +526,122 @@ export class AdminService {
       details: { title: newEvent.title, capacity: STANDARD_VENUE_CAPACITY },
     });
 
+    this.notifySubscribers();
     return newEvent;
   }
 
   /**
-   * Updates an existing event in localStorage or overrides FEATURED_EVENTS.
+   * Updates an existing event across all sources (custom, remote, featured),
+   * persists overrides and custom events, and synchronizes with Supabase.
    */
   updateEvent(eventId, updates = {}) {
     if (!eventId) return null;
 
     let customEvents = this._loadCustomEvents();
     const customIdx = customEvents.findIndex((e) => e.id === eventId);
-    let updatedEvent = null;
+    const overrides = this._loadOverrides();
+    const currentOverride = overrides[eventId] || {};
+
+    const existingFeatured = FEATURED_EVENTS.find((e) => e.id === eventId);
+    const existingRemote = this._remoteEvents?.find((e) => e.id === eventId);
+    const baseEvent =
+      (customIdx !== -1 ? customEvents[customIdx] : null) ||
+      existingFeatured ||
+      existingRemote ||
+      this.getEventById(eventId) ||
+      {};
+
+    const merged = { ...baseEvent, ...currentOverride, ...updates };
+
+    const pVip = updates.vipPrice !== undefined ? Number(updates.vipPrice) : (merged.vipPrice ?? merged.tierPricing?.vip);
+    const pReg = updates.regularPrice !== undefined ? Number(updates.regularPrice) : (merged.regularPrice ?? merged.tierPricing?.regular);
+    const pBal = updates.balconyPrice !== undefined ? Number(updates.balconyPrice) : (merged.balconyPrice ?? merged.tierPricing?.balcony);
+
+    let priceUpdates = {};
+    if (pVip !== undefined && pReg !== undefined && pBal !== undefined) {
+      const minP = Math.min(pVip, pReg, pBal);
+      const maxP = Math.max(pVip, pReg, pBal);
+      priceUpdates = {
+        priceRange: minP === maxP ? `$${minP}` : `$${minP} – $${maxP}`,
+        priceRange_ar: minP === maxP ? `${minP}$` : `${minP}$ – ${maxP}$`,
+        vipPrice: pVip,
+        regularPrice: pReg,
+        balconyPrice: pBal,
+        tierPricing: { vip: pVip, regular: pReg, balcony: pBal },
+      };
+    }
+
+    const updatedEvent = {
+      ...merged,
+      ...priceUpdates,
+      updatedAt: new Date().toISOString(),
+    };
 
     if (customIdx !== -1) {
-      const existing = customEvents[customIdx];
-      const pVip = updates.vipPrice !== undefined ? Number(updates.vipPrice) : existing.vipPrice;
-      const pReg = updates.regularPrice !== undefined ? Number(updates.regularPrice) : existing.regularPrice;
-      const pBal = updates.balconyPrice !== undefined ? Number(updates.balconyPrice) : existing.balconyPrice;
-
-      let priceUpdates = {};
-      if (pVip !== undefined && pReg !== undefined && pBal !== undefined) {
-        const minP = Math.min(pVip, pReg, pBal);
-        const maxP = Math.max(pVip, pReg, pBal);
-        priceUpdates = {
-          priceRange: minP === maxP ? `$${minP}` : `$${minP} – $${maxP}`,
-          priceRange_ar: minP === maxP ? `${minP}$` : `${minP}$ – ${maxP}$`,
-          vipPrice: pVip,
-          regularPrice: pReg,
-          balconyPrice: pBal,
-          tierPricing: { vip: pVip, regular: pReg, balcony: pBal },
-        };
-      }
-
-      updatedEvent = {
-        ...existing,
-        ...updates,
-        ...priceUpdates,
-        updatedAt: new Date().toISOString(),
-      };
       customEvents[customIdx] = updatedEvent;
       this._saveCustomEvents(customEvents);
-    } else {
-      const overrides = this._loadOverrides();
-      const existingFeatured = FEATURED_EVENTS.find((e) => e.id === eventId);
-      if (existingFeatured) {
-        const currentOverride = overrides[eventId] || {};
-        const merged = { ...existingFeatured, ...currentOverride, ...updates };
+    }
 
-        const pVip = updates.vipPrice !== undefined ? Number(updates.vipPrice) : merged.vipPrice;
-        const pReg = updates.regularPrice !== undefined ? Number(updates.regularPrice) : merged.regularPrice;
-        const pBal = updates.balconyPrice !== undefined ? Number(updates.balconyPrice) : merged.balconyPrice;
+    overrides[eventId] = updatedEvent;
+    this._saveOverrides(overrides);
 
-        let priceUpdates = {};
-        if (pVip !== undefined && pReg !== undefined && pBal !== undefined) {
-          const minP = Math.min(pVip, pReg, pBal);
-          const maxP = Math.max(pVip, pReg, pBal);
-          priceUpdates = {
-            priceRange: minP === maxP ? `$${minP}` : `$${minP} – $${maxP}`,
-            priceRange_ar: minP === maxP ? `${minP}$` : `${minP}$ – ${maxP}$`,
-            vipPrice: pVip,
-            regularPrice: pReg,
-            balconyPrice: pBal,
-            tierPricing: { vip: pVip, regular: pReg, balcony: pBal },
-          };
-        }
-
-        updatedEvent = {
-          ...merged,
-          ...priceUpdates,
-          updatedAt: new Date().toISOString(),
-        };
-        overrides[eventId] = updatedEvent;
-        this._saveOverrides(overrides);
+    if (this._remoteEvents && Array.isArray(this._remoteEvents)) {
+      const rIdx = this._remoteEvents.findIndex((e) => e.id === eventId);
+      if (rIdx !== -1) {
+        this._remoteEvents[rIdx] = { ...this._remoteEvents[rIdx], ...updatedEvent };
       }
     }
 
-    if (updatedEvent) {
-      this.recordAuditLog({
-        action: 'EVENT_UPDATED',
-        actorEmail: INITIAL_SUPER_ADMIN.email,
-        target: eventId,
-        details: updates,
-      });
-    }
+    // Synchronize to Supabase without blocking synchronous caller
+    this._syncEventToSupabase(eventId, updatedEvent).catch((err) => {
+      console.warn('[adminService] Supabase syncEvent error:', err);
+    });
 
+    this.recordAuditLog({
+      action: 'EVENT_UPDATED',
+      actorEmail: INITIAL_SUPER_ADMIN.email,
+      target: eventId,
+      details: updates,
+    });
+
+    this.notifySubscribers();
     return updatedEvent;
   }
 
   /**
-   * Deletes a custom event or marks a featured event as deleted
+   * Persists event changes directly to Supabase events table
+   */
+  async _syncEventToSupabase(eventId, updatedEvent) {
+    if (typeof supabase === 'undefined' || !supabase || typeof supabase.from !== 'function') return;
+    try {
+      const dbPayload = {
+        title: updatedEvent.title,
+        title_ar: updatedEvent.title_ar,
+        category: updatedEvent.category,
+        category_ar: updatedEvent.category_ar,
+        venue_name: updatedEvent.venue,
+        venue_name_ar: updatedEvent.venue_ar,
+        description: updatedEvent.description,
+        description_ar: updatedEvent.description_ar,
+        vip_price: updatedEvent.vipPrice,
+        regular_price: updatedEvent.regularPrice,
+        balcony_price: updatedEvent.balconyPrice,
+        status: updatedEvent.status,
+        updated_at: new Date().toISOString(),
+      };
+      if (updatedEvent.date_time) {
+        dbPayload.date_time = updatedEvent.date_time;
+        dbPayload.event_date = updatedEvent.date_time;
+      }
+      await supabase.from('events').update(dbPayload).eq('id', eventId);
+    } catch (err) {
+      console.warn('[adminService] _syncEventToSupabase exception:', err);
+    }
+  }
+
+  /**
+   * Deletes a custom event or marks a featured event as deleted,
+   * and cascades the deletion to Supabase PostgreSQL (tickets, bookings, seats, events).
    */
   deleteEvent(eventId) {
     if (!eventId) return { success: false };
@@ -433,6 +658,29 @@ export class AdminService {
       this._saveOverrides(overrides);
     }
 
+    if (this._remoteEvents && Array.isArray(this._remoteEvents)) {
+      this._remoteEvents = this._remoteEvents.filter((e) => e.id !== eventId);
+    }
+
+    // Cascade delete in Supabase PostgreSQL
+    try {
+      if (typeof supabase !== 'undefined' && supabase && typeof supabase.rpc === 'function') {
+        supabase
+          .rpc('admin_delete_event', { p_event_id: eventId })
+          .then(({ error }) => {
+            if (error) {
+              console.warn('[adminService] admin_delete_event RPC error, falling back to direct delete:', error);
+              Promise.resolve(supabase.from('events').delete().eq('id', eventId)).catch(() => {});
+            }
+          })
+          .catch((err) => {
+            console.warn('[adminService] admin_delete_event exception:', err);
+          });
+      }
+    } catch (err) {
+      console.warn('[adminService] deleteEvent remote sync exception:', err);
+    }
+
     this.recordAuditLog({
       action: 'EVENT_DELETED',
       actorEmail: INITIAL_SUPER_ADMIN.email,
@@ -440,6 +688,7 @@ export class AdminService {
       details: {},
     });
 
+    this.notifySubscribers();
     return { success: true, eventId };
   }
 
@@ -466,7 +715,9 @@ export class AdminService {
     });
     this._saveOverrides(overrides);
 
-    return this.getEventById(eventId);
+    const updated = this.getEventById(eventId);
+    this.notifySubscribers();
+    return updated;
   }
 
   // -------------------------------------------------------------
@@ -1008,13 +1259,24 @@ export class AdminService {
 
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
-        window.localStorage.removeItem(CUSTOM_EVENTS_STORAGE_KEY);
-        window.localStorage.removeItem(EVENT_OVERRIDES_STORAGE_KEY);
+        const keysToRemove = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith('ticketcraft_') && key !== PLATFORM_USERS_STORAGE_KEY) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => window.localStorage.removeItem(k));
         window.localStorage.setItem(PLATFORM_USERS_STORAGE_KEY, JSON.stringify([INITIAL_SUPER_ADMIN]));
-        window.localStorage.removeItem(AUDIT_LOGS_STORAGE_KEY);
       } catch {
         // Safe fallback
       }
+    }
+
+    try {
+      supabase.rpc('clean_database_to_pristine_state').catch(() => {});
+    } catch {
+      // Safe fallback
     }
 
     // Reset ticketing inventory, seats, holds, and bookings
@@ -1046,6 +1308,7 @@ export class AdminService {
     this._overrides = {};
     this._users = [...INITIAL_USERS];
     this._auditLogs = [];
+    this._remoteEvents = null;
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         window.localStorage.removeItem(CUSTOM_EVENTS_STORAGE_KEY);
@@ -1057,6 +1320,7 @@ export class AdminService {
       }
     }
     ticketingService.resetState?.();
+    this.notifySubscribers();
   }
 }
 
@@ -1067,6 +1331,10 @@ export const recordAuditLog = (params) => adminService.recordAuditLog(params);
 export const getAuditLogs = () => adminService.getAuditLogs();
 export const getUsers = () => adminService.getUsers();
 export const fetchUsersFromSupabase = () => adminService.fetchUsersFromSupabase();
+export const getAllEvents = () => adminService.getAllEvents();
+export const fetchEventsFromSupabase = () => adminService.fetchEventsFromSupabase();
 export const createGateStaffUser = (params) => adminService.createGateStaffUser(params);
 export const createUser = (params) => adminService.createUser(params);
+export const deleteEvent = (eventId) => adminService.deleteEvent(eventId);
 export const resetToCleanState = (actorEmail) => adminService.resetToCleanState(actorEmail);
+export const subscribeToEvents = (listener) => adminService.subscribe(listener);
